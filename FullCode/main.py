@@ -16,6 +16,8 @@ import wget
 def create_data(source, output):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     src_files = Path(source).glob('*.gz')
+    if os.path.isfile(output):
+        return
     with open(output, 'w', encoding='utf8') as fout:
         for zfile in src_files:
             print("processing {}".format(zfile))
@@ -24,7 +26,7 @@ def create_data(source, output):
                     jobj = json.loads(line)
                     code = jobj['code']
                     doc_str = jobj['docstring']
-                    input_ids = tokenizer.encode(code, doc_str, max_length=512)
+                    input_ids = tokenizer.encode(code, doc_str, max_length=256)
                     tokens = tokenizer.convert_ids_to_tokens(input_ids)
                     fout.write(" ".join(tokens) + "\n")
 
@@ -33,7 +35,7 @@ class CodeDataset(Dataset):
     def __init__(self, evaluate: bool = False):
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         self.data = []
-        file = './data/valid.txt' if evaluate else './data/train.txt'
+        file = './data/java/valid.txt' if evaluate else './data/java/train.txt'
         with open(file, encoding='utf8', errors='ignore') as fin:
             lines = fin.readlines()
             self.data = [tokenizer.convert_tokens_to_ids(line.split()) for line in lines]
@@ -63,5 +65,5 @@ if __name__ == '__main__':
         print("Finishing downloading...")
     train_path = os.path.join(args.data_dir, "{}/final/jsonl/train".format(args.language))
     valid_path = os.path.join(args.data_dir, "{}/final/jsonl/valid".format(args.language))
-    create_data(train_path, './data/train.txt')
-    create_data(valid_path, "./data/valid.txt")
+    create_data(train_path, './data/{}/train.txt'.format(args.language))
+    create_data(valid_path, "./data/{}/valid.txt".format(args.language))
