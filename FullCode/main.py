@@ -1,6 +1,8 @@
 # https://huggingface.co/blog/how-to-train
 import os
+import shutil
 from pathlib import Path
+from zipfile import ZipFile
 
 import torch
 from torch.utils.data import Dataset
@@ -9,6 +11,7 @@ import json
 import argparse
 from transformers import BertTokenizer
 from subprocess import call
+import wget
 
 
 def create_data(source, output):
@@ -45,13 +48,18 @@ class CodeDataset(Dataset):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Java Data make script')
     parser.add_argument('-d', '--data_dir', type=str, default="G:/Document/code_search_net/")
-    parser.add_argument('-l', '--language', type=str, default="G:/Document/code_search_net/")
+    parser.add_argument('-l', '--language', type=str, default="java")
     args = parser.parse_args()
     if not os.path.isdir(os.path.join(args.data_dir, args.language)):
-        call(['wget', 'https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2/{}.zip'.format(args.language), '-P',
-              args.data_dir, '-O', '{}.zip'.format(args.language)])
-        call(['unzip', '{}.zip'.format(args.language)])
-        call(['rm', '{}.zip'.format(args.language)])
+        zip_file_name = '{}.zip'.format(args.language)
+        print("Downloading data {}".format(zip_file_name))
+        url = 'https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2/{}'.format(zip_file_name)
+        out_path = os.path.join(args.data_dir, zip_file_name)
+        wget.download(url, out_path)
+        with ZipFile(out_path, 'r') as zipObj:
+            zipObj.extractall(args.data_dir)
+        os.remove(out_path)
+        print("Finishing downloading...")
     train_path = os.path.join(args.data_dir, "{}/final/jsonl/train".format(args.language))
     valid_path = os.path.join(args.data_dir, "{}/final/jsonl/valid".format(args.language))
     create_data(train_path, './data/trian.txt')
