@@ -10,22 +10,23 @@ import gzip
 import json
 import argparse
 from transformers import BertTokenizer
-from subprocess import call
 import wget
 
 
 def create_data(source, output):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    src_files = Path(source).glob('*')
-    for zfile in src_files:
-        with gzip.open(zfile, 'r') as fin, open(output, 'w', encoding='utf8') as fout:
-            for line in fin.readlines():
-                jobj = json.loads(line)
-                code = jobj['code']
-                doc_str = jobj['docstring']
-                input_ids = tokenizer.encode(code, doc_str, max_length=512)
-                tokens = tokenizer.convert_ids_to_tokens(input_ids)
-                fout.write(" ".join(tokens) + "\n")
+    src_files = Path(source).glob('*.gz')
+    with open(output, 'w', encoding='utf8') as fout:
+        for zfile in src_files:
+            print("processing {}".format(zfile))
+            with gzip.open(zfile, 'r') as fin:
+                for line in fin.readlines():
+                    jobj = json.loads(line)
+                    code = jobj['code']
+                    doc_str = jobj['docstring']
+                    input_ids = tokenizer.encode(code, doc_str, max_length=512)
+                    tokens = tokenizer.convert_ids_to_tokens(input_ids)
+                    fout.write(" ".join(tokens) + "\n")
 
 
 class CodeDataset(Dataset):
@@ -62,5 +63,5 @@ if __name__ == '__main__':
         print("Finishing downloading...")
     train_path = os.path.join(args.data_dir, "{}/final/jsonl/train".format(args.language))
     valid_path = os.path.join(args.data_dir, "{}/final/jsonl/valid".format(args.language))
-    create_data(train_path, './data/trian.txt')
+    create_data(train_path, './data/train.txt')
     create_data(valid_path, "./data/valid.txt")
