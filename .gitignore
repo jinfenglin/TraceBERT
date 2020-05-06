@@ -2,3 +2,5 @@
 venv
 */data
 cola_*
+*/model
+*/wandb
