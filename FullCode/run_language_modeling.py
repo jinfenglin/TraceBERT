@@ -40,7 +40,7 @@ from transformers import (
     set_seed,
 )
 
-from main import CodeDataset
+from data_prepare import CodeDataset
 
 logger = logging.getLogger(__name__)
 

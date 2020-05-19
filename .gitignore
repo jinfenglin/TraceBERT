@@ -1,6 +1,6 @@
 .idea
 venv
-*/data
+*/data/*
 cola_*
 */model
 */wandb

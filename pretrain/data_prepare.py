@@ -39,6 +39,9 @@ class CodeDataset(Dataset):
         with open(file, encoding='utf8', errors='ignore') as fin:
             lines = fin.readlines()
             self.data = [tokenizer.convert_tokens_to_ids(line.split()) for line in lines]
+            # tokenizer.prepare_for_model()
+            # print(tokenizer.create_token_type_ids_from_sequences(lines[0]))
+
 
     def __len__(self):
         return len(self.data)
