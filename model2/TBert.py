@@ -1,13 +1,15 @@
+import os
+
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCELoss, BCEWithLogitsLoss
 from transformers import PreTrainedModel, BertConfig, AutoTokenizer, AutoModelWithLMHead, RobertaTokenizer, \
     RobertaForSequenceClassification, TextClassificationPipeline, AutoModel, BertTokenizer
 
 # create directly applyable dataset examples in squad.py
 # conducting training run_squad.py
 # define a new classification header bert_modeling.py
-from transformers.modeling_bert import BertOnlyNSPHead, BertLayer, BertForNextSentencePrediction, BertPooler
+from transformers.modeling_bert import BertOnlyNSPHead, BertLayer, BertForNextSentencePrediction, BertPooler, BertModel
 
 
 class RelationClassifyHeader(nn.Module):
@@ -59,7 +61,8 @@ class TBert(PreTrainedModel):
         output_dict = {"logits": logits}
         if relation_label is not None:
             loss_fct = CrossEntropyLoss()
-            rel_loss = loss_fct(logits.view(-1, 2), relation_label.view(-1))
+            # loss_fct = BCEWithLogitsLoss()
+            rel_loss = loss_fct(logits.view(2, -1)[0], relation_label.view(-1))
             output_dict['loss'] = rel_loss
         return output_dict  # (rel_loss), rel_score
 
@@ -71,13 +74,19 @@ class TBert(PreTrainedModel):
 if __name__ == "__main__":
     config = BertConfig()
     t_bert = TBert(config)
-    s1 = 'def prepare_inputs_for_generation(self, input_ids, **kwargs): return {"input_ids": input_ids}'
-    s2 = 'prepare inputs for generation'
-    config.is_decoder = True
-    c_input_ids = t_bert.create_embd(s1, t_bert.ctokneizer)
-    n_input_ids = t_bert.create_embd(s2, t_bert.ntokenizer)
-    t_bert.eval()
-    res = t_bert(code_ids=c_input_ids,
-                 text_ids=n_input_ids,
-                 )
-    print(res)
+    t_bert.state_dict()['my_flag'] = '1024'
+    torch.save(t_bert.state_dict(), "./output/t_bert_state.pt")
+    recovered_model = TBert(config)
+    recovered_model.load_state_dict(torch.load("./output/t_bert_state.pt"))
+    print(recovered_model.state_dict()['my_flag'])
+
+    # s1 = 'def prepare_inputs_for_generation(self, input_ids, **kwargs): return {"input_ids": input_ids}'
+    # s2 = 'prepare inputs for generation'
+    # config.is_decoder = True
+    # c_input_ids = t_bert.create_embd(s1, t_bert.ctokneizer)
+    # n_input_ids = t_bert.create_embd(s2, t_bert.ntokenizer)
+    # recovered_model.eval()
+    # res = recovered_model(code_ids=c_input_ids,
+    #                       text_ids=n_input_ids,
+    #                       )
+    # print(res)

@@ -5,3 +5,7 @@ cola_*
 */model
 */wandb
 bert_for_code.*
+runs
+output
+*.pyc
+__pycache__
