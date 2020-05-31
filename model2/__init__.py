@@ -60,22 +60,17 @@ class TBertProcessor:
         :param example:
         :return:
         """
+        # return input_ids and attention mask.
+        # attention_mask is important to filter out the paddings
+        # https://huggingface.co/transformers/main_classes/tokenizer.html#transformers.PreTrainedTokenizer.encode_plus
+        nl_data = NL_tokenizer.encode_plus(example['NL'], max_length=max_length,
+                                           pad_to_max_length=True, return_attention_mask=True,
+                                           return_token_type_ids=False)
+        pl_data = PL_tokenizer.encode_plus(example['PL'], max_length=max_length,
+                                           pad_to_max_length=True, return_attention_mask=True,
+                                           return_token_type_ids=False)
 
-        n_input_ids = NL_tokenizer.encode(example['NL'], add_special_token=True,
-                                          max_length=max_length, stride=128, pad_to_max_length=True)
-        p_input_ids = PL_tokenizer.encode(example['PL'], add_special_tokens=True,
-                                          max_length=max_length, stride=128, pad_to_max_length=True)
-
-        # use dictionary for code refactory in future
-        nl_data = {
-            'input_ids': n_input_ids
-        }
-
-        pl_data = {
-            'input_ids': p_input_ids
-        }
-
-        return (nl_data, pl_data)
+        return (nl_data.data, pl_data.data)
 
     def convert_examples_to_dataset(self, examples, NL_tokenizer, PL_tokenizer, is_training, threads=1):
         """
@@ -142,13 +137,17 @@ class TBertProcessor:
         # Convert to Tensors and build dataset， T-Bert will only need input_ids and will handle
         # the attention_mask etc automatically
         all_NL_input_ids = torch.tensor([f[0]['input_ids'] for f in features], dtype=torch.long)
+        all_NL_attention_mask = torch.tensor([f[0]['attention_mask'] for f in features], dtype=torch.long)
+
         all_PL_input_ids = torch.tensor([f[1]['input_ids'] for f in features], dtype=torch.long)
+        all_PL_attention_mask = torch.tensor([f[1]['attention_mask'] for f in features], dtype=torch.long)
 
         if is_training:
-            all_labels = torch.tensor([f[2] for f in features], dtype=torch.float)
-            dataset = TensorDataset(all_NL_input_ids, all_PL_input_ids, all_labels)
+            all_labels = torch.tensor([f[2] for f in features], dtype=torch.long)
+            dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask,
+                                    all_labels)
         else:
-            dataset = TensorDataset(all_NL_input_ids, all_PL_input_ids)
+            dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask)
         return dataset
 
 

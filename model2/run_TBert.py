@@ -46,7 +46,7 @@ def load_and_cache_examples(data_dir, nl_tokenzier, pl_tokenizer, is_training, o
     else:
         logger.info("Creating features from dataset file at %s", input_dir)
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(num_limit=100)
+        examples = csn_reader.get_examples(num_limit=50)
         dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
                                                                is_training=is_training, threads=4)
         logger.info("Saving features into cached file %s", cached_file)
@@ -150,8 +150,10 @@ def train(args, train_dataset, model):
             batch = tuple(t.to(args.device) for t in batch)
             inputs = {
                 "text_ids": batch[0],
-                "code_ids": batch[1],
-                "relation_label": batch[2]
+                "text_attention_mask": batch[1],
+                "code_ids": batch[2],
+                "code_attention_mask": batch[3],
+                "relation_label": batch[4]
             }
             outputs = model(**inputs)
             loss = outputs['loss']
@@ -180,7 +182,7 @@ def train(args, train_dataset, model):
                 global_step += 1
 
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
+                    tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
@@ -219,7 +221,8 @@ def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
 def evaluate(args, model, prefix=""):
     dataset = load_and_cache_examples(args.data_dir, model.ntokenizer, model.ctokneizer, is_training=True)
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    eval_sampler = SequentialSampler(dataset)
+    # eval_sampler = SequentialSampler(dataset)
+    eval_sampler = RandomSampler(dataset)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
     # multi-gpu evaluate
@@ -238,13 +241,16 @@ def evaluate(args, model, prefix=""):
         with torch.no_grad():
             inputs = {
                 "text_ids": batch[0],
-                "code_ids": batch[1],
+                "text_attention_mask": batch[1],
+                "code_ids": batch[2],
+                "code_attention_mask": batch[3],
             }
-            label = batch[2]
-        outputs = model(**inputs)
-        logit = outputs['logits']
-        y_pred = logit.data.max(1)[1].byte().logical_not_()
-        num_correct += y_pred.eq(label).long().sum().item()
+            label = batch[4]
+            outputs = model(**inputs)
+            logit = outputs['logits']
+            y_pred = logit.data.max(1)[1]
+            num_correct += y_pred.eq(label).long().sum().item()
+            print(y_pred, label)
     accuracy = num_correct / len(dataset)
     return accuracy
 
@@ -384,6 +390,10 @@ def main():
             result = evaluate(args, model, prefix=global_step)
             res_id = "_{}".format(global_step) if global_step else ""
             results[res_id] = result
+        # # DEBUG. Use the trained model directly instead of loading from file
+        # result = evaluate(args, model, prefix=global_step)
+        # res_id = "_{}".format(global_step) if global_step else ""
+        # results[res_id] = result
 
     logger.info("Results: {}".format(results))
     return results

@@ -12,18 +12,47 @@ from transformers import PreTrainedModel, BertConfig, AutoTokenizer, AutoModelWi
 from transformers.modeling_bert import BertOnlyNSPHead, BertLayer, BertForNextSentencePrediction, BertPooler, BertModel
 
 
-class RelationClassifyHeader(nn.Module):
+# class AveragePooler(nn.Module):
+#     def __init__(self, config):
+#         super().__init__()
+#         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+#         self.activation = nn.Tanh()
+#
+#     def forward(self, hidden_states):
+#         # We "pool" the model by averaging he hidden state corresponding to all tokens
+#         first_token_tensor = hidden_states[:, 0]
+#         pooled_output = self.dense(first_token_tensor)
+#         pooled_output = self.activation(pooled_output)
+#         return pooled_output
+
+# class RelationClassifyHeader(nn.Module):
+#     def __init__(self, config):
+#         super().__init__()
+#         config.is_decoder = True
+#         self.relation_layer = BertLayer(config)
+#         config.is_decoder = False
+#         self.regression_header = BertOnlyNSPHead(config)
+#         self.pooler = BertPooler(config)
+#
+#     def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
+#         sequence_output = self.relation_layer(text_hidden, text_attention_mask, 1, code_hidden, code_attention_mask,)
+#         pooled_output = self.pooler(sequence_output[0])
+#         seq_relationship_score = self.regression_header(pooled_output)
+#         return seq_relationship_score
+
+class RelationClassifyHeader_no_transformer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.relation_layer = BertLayer(config)
-        self.regression_header = BertOnlyNSPHead(config)
-        self.pooler = BertPooler(config)
+        self.relation_layer = nn.Linear(config.hidden_size * 2, 2)
+        self.nl_pooler = BertPooler(config)
+        self.pl_pooler = BertPooler(config)
 
     def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
-        sequence_output = self.relation_layer(code_hidden, code_attention_mask, 1, text_hidden, text_attention_mask)
-        pooled_output = self.pooler(sequence_output[0])
-        seq_relationship_score = self.regression_header(pooled_output)
-        return nn.Softmax(dim=-1)(seq_relationship_score)
+        pool_code_hidden = self.pl_pooler(code_hidden)
+        pool_text_hidden = self.nl_pooler(text_hidden)
+        concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
+        seq_relationship_score = self.relation_layer(concated_hidden)
+        return seq_relationship_score
 
 
 class TBert(PreTrainedModel):
@@ -37,7 +66,7 @@ class TBert(PreTrainedModel):
 
         self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
         self.nbert = AutoModel.from_pretrained(nbert_model)
-        self.cls = RelationClassifyHeader(config)
+        self.cls = RelationClassifyHeader_no_transformer(config)
 
     def forward(
             self,
@@ -62,7 +91,7 @@ class TBert(PreTrainedModel):
         if relation_label is not None:
             loss_fct = CrossEntropyLoss()
             # loss_fct = BCEWithLogitsLoss()
-            rel_loss = loss_fct(logits.view(2, -1)[0], relation_label.view(-1))
+            rel_loss = loss_fct(logits.view(-1, 2), relation_label.view(-1))
             output_dict['loss'] = rel_loss
         return output_dict  # (rel_loss), rel_score
 
