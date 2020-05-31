@@ -66,7 +66,4 @@ if __name__ == '__main__':
             zipObj.extractall(args.data_dir)
         os.remove(out_path)
         print("Finishing downloading...")
-    train_path = os.path.join(args.data_dir, "{}/final/jsonl/train".format(args.language))
-    valid_path = os.path.join(args.data_dir, "{}/final/jsonl/valid".format(args.language))
-    create_data(train_path, './data/{}/train.txt'.format(args.language))
-    create_data(valid_path, "./data/{}/valid.txt".format(args.language))
+

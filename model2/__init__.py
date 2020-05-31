@@ -69,8 +69,15 @@ class TBertProcessor:
         pl_data = PL_tokenizer.encode_plus(example['PL'], max_length=max_length,
                                            pad_to_max_length=True, return_attention_mask=True,
                                            return_token_type_ids=False)
-
-        return (nl_data.data, pl_data.data)
+        nl = {
+            "input_ids": nl_data['input_ids'],
+            "attention_mask": nl_data['attenion_mask']
+        }
+        pl = {
+            "input_ids": pl_data['input_ids'],
+            "attention_mask": pl_data['attenion_mask']
+        }
+        return (nl, pl)
 
     def convert_examples_to_dataset(self, examples, NL_tokenizer, PL_tokenizer, is_training, threads=1):
         """
@@ -153,9 +160,9 @@ class TBertProcessor:
 
 if __name__ == "__main__":
     tb_process = CodeSearchNetReader(data_dir="G:\\Document\\code_search_net\\")
-    examples = tb_process.get_examples(num_limit=100)
+    examples = tb_process.get_examples(num_limit=None)
     model = TBert(BertConfig())
     data_set = TBertProcessor().convert_examples_to_dataset(examples, model.ntokenizer, model.ctokneizer,
-                                                            is_training=True, threads=2)
+                                                            is_training=True, threads=8)
     torch.save(data_set, "./dataset.dat")
     print(data_set)

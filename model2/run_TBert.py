@@ -46,9 +46,10 @@ def load_and_cache_examples(data_dir, nl_tokenzier, pl_tokenizer, is_training, o
     else:
         logger.info("Creating features from dataset file at %s", input_dir)
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(num_limit=50)
+        examples = csn_reader.get_examples(num_limit=None)
+        logger.info("Creating features with {} examples".format(len(examples)))
         dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
-                                                               is_training=is_training, threads=4)
+                                                               is_training=is_training, threads=8)
         logger.info("Saving features into cached file %s", cached_file)
         torch.save(dataset, cached_file)
     return dataset
