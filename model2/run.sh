@@ -7,4 +7,6 @@ python exec_TBert_experiment.py \
 --per_gpu_eval_batch_size 8 \
 --logging_steps 1 \
 --save_steps 100 \
---gradient_accumulation_steps 32 \
+--gradient_accumulation_steps 16\
+--num_train_epochs 5\
+--overwrite

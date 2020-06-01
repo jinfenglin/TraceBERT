@@ -198,7 +198,8 @@ def train(args, train_dataset, model):
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     tb_writer.add_scalar("accuracy",
-                                         (tr_ac - logging_ac) / args.logging_steps / (args.train_batch_size * args.acc),
+                                         (tr_ac - logging_ac) / args.logging_steps / (
+                                                     args.train_batch_size * args.gradient_accumulation_steps),
                                          global_step)
                     logging_loss = tr_loss
                     logging_ac = tr_ac
@@ -260,7 +261,8 @@ def evaluate(args, dataset, model, prefix=""):
             y_pred = logit.data.max(1)[1]
             batch_correct = y_pred.eq(label).long().sum().item()
             num_correct += batch_correct
-            tqdm.write("pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist, batch_correct))
+            tqdm.write(
+                "pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist(), batch_correct))
     accuracy = num_correct / len(dataset)
     return accuracy
 
@@ -316,7 +318,7 @@ def main():
     parser.add_argument(
         "--output_dir", default=None, type=str, required=True,
         help="The output directory where the model checkpoints and predictions will be written.", )
-    parser.add_argument("--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.")
+    parser.add_argument("--learning_rate", default=1e-5, type=float, help="The initial learning rate for Adam.")
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
