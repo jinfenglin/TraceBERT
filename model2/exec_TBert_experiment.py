@@ -143,6 +143,7 @@ def train(args, train_dataset, model):
             logger.info("  Starting fine-tuning.")
 
     tr_loss, logging_loss = 0.0, 0.0
+    tr_ac, logging_ac = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
@@ -166,6 +167,9 @@ def train(args, train_dataset, model):
             }
             outputs = model(**inputs)
             loss = outputs['loss']
+            logit = outputs['logits']
+            y_pred = logit.data.max(1)[1]
+            tr_ac += y_pred.eq(batch[4]).long().sum().item()
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -193,7 +197,11 @@ def train(args, train_dataset, model):
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                    tb_writer.add_scalar("accuracy",
+                                         (tr_ac - logging_ac) / args.logging_steps / (args.train_batch_size * args.acc),
+                                         global_step)
                     logging_loss = tr_loss
+                    logging_ac = tr_ac
 
                 # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -278,13 +286,21 @@ def main():
     parser.add_argument(
         "--data_dir", default="./data", type=str,
         help="The input data dir. Should contain the .json files for the task.")
+    parser.add_argument(
+        "--model_path", default=None, type=str, required=True,
+        help="path of checkpoint and trained model, if none will do training from scratch")
+    parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
+    parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
+    parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
+    parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
+    parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
     parser.add_argument(
         "--fp16", action="store_true",
         help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit", )
     parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
-    parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
+
     parser.add_argument(
         "--gradient_accumulation_steps", type=int, default=1,
         help="Number of updates steps to accumulate before performing a backward/update pass.", )
@@ -296,29 +312,12 @@ def main():
         "--max_steps", default=-1, type=int,
         help="If > 0: set total number of training steps to perform. Override num_train_epochs.", )
     parser.add_argument(
-        "--model_path", default=None, type=str, required=True,
-        help="path of checkpoint and trained model, if none will do training from scratch")
-    parser.add_argument(
         "--output_dir", default=None, type=str, required=True,
         help="The output directory where the model checkpoints and predictions will be written.", )
-    parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
-    parser.add_argument(
-        "--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument("--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.")
-    parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
-    parser.add_argument(
-        "--programming_language",
-        help="target programming language"
-    )
-    parser.add_argument(
-        "--eval_all_checkpoints",
-        action="store_true",
-        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number",
-    )
-    parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
     args = parser.parse_args()
 
