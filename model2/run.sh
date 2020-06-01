@@ -1,0 +1,10 @@
+python exec_TBert_experiment.py \
+--data_dir ./data/code_search_net \
+--do_train --do_eval \
+--output_dir ./output \
+--model_path ./output/final_model \
+--per_gpu_train_batch_size 8 \
+--per_gpu_eval_batch_size 8 \
+--logging_steps 2 \
+--save_steps 100 \
+--gradient_accumulation_steps 10 \

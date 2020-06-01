@@ -1,6 +1,7 @@
 import argparse
 import glob
 import logging
+import multiprocessing
 import os
 import random
 import timeit
@@ -27,30 +28,37 @@ def set_seed(args):
         torch.cuda.manual_seed_all(args.seed)
 
 
-def load_and_cache_examples(data_dir, nl_tokenzier, pl_tokenizer, is_training, overwrite=False):
+def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
+                            thread_num=None, num_limit=None):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
+    :param data_type:
     :param tokenizer:
     :param evaluate:
     :param output_examples:
     :return:
     """
     # Load data features from cache or dataset file
-    input_dir = data_dir
-    cached_file = os.path.join(input_dir, "cache", "cached_all_instance.dat")
+    if not thread_num:
+        thread_num = multiprocessing.cpu_count()
+
+    cache_dir = os.path.join(data_dir, "cache")
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+    cached_file = os.path.join(cache_dir, "cached_{}.dat".format(data_type))
     # Init features and dataset from cache if it exists
     if os.path.exists(cached_file) and not overwrite:
         logger.info("Loading features from cached file %s", cached_file)
         dataset = torch.load(cached_file)
     else:
-        logger.info("Creating features from dataset file at %s", input_dir)
+        logger.info("Creating features from dataset file at %s", data_dir)
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(num_limit=None)
-        logger.info("Creating features with {} examples".format(len(examples)))
+        examples = csn_reader.get_examples(type=data_type, num_limit=num_limit)
+        logger.info("Creating features for {} dataset with num of {}".format(data_type, len(examples)))
         dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
-                                                               is_training=is_training, threads=8)
-        logger.info("Saving features into cached file %s", cached_file)
+                                                               is_training=is_training, threads=thread_num)
+        logger.info("Saving features into cached file {}".format(cached_file))
         torch.save(dataset, cached_file)
     return dataset
 
@@ -212,15 +220,7 @@ def train(args, train_dataset, model):
     return global_step, tr_loss / global_step
 
 
-def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
-    torch.save(model, os.path.join(ckpt_dir, 't_bert.pt'))
-    torch.save(args, os.path.join(ckpt_dir, "training_args.bin"))
-    torch.save(optimizer.state_dict(), os.path.join(ckpt_dir, "optimizer.pt"))
-    torch.save(scheduler.state_dict(), os.path.join(ckpt_dir, "scheduler.pt"))
-
-
-def evaluate(args, model, prefix=""):
-    dataset = load_and_cache_examples(args.data_dir, model.ntokenizer, model.ctokneizer, is_training=True)
+def evaluate(args, dataset, model, prefix=""):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # eval_sampler = SequentialSampler(dataset)
     eval_sampler = RandomSampler(dataset)
@@ -254,6 +254,23 @@ def evaluate(args, model, prefix=""):
             print(y_pred, label)
     accuracy = num_correct / len(dataset)
     return accuracy
+
+
+def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
+    torch.save(model, os.path.join(ckpt_dir, 't_bert.pt'))
+    torch.save(args, os.path.join(ckpt_dir, "training_args.bin"))
+    torch.save(optimizer.state_dict(), os.path.join(ckpt_dir, "optimizer.pt"))
+    torch.save(scheduler.state_dict(), os.path.join(ckpt_dir, "scheduler.pt"))
+
+
+def evaluate_checkpoint(checkpoint, args):
+    model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
+    model.to(args.device)
+    eval_dataset = load_and_cache_examples(args.data_dir, "valid",
+                                           model.ntokenizer, model.ctokneizer,
+                                           is_training=True, num_limit=100)
+    result = evaluate(args, eval_dataset, model)
+    return result
 
 
 def main():
@@ -291,6 +308,10 @@ def main():
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
+    )
+    parser.add_argument(
+        "--programming_language",
+        help="target programming language"
     )
     parser.add_argument(
         "--eval_all_checkpoints",
@@ -357,7 +378,9 @@ def main():
     # Training
     if args.do_train:
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
-        train_dataset = load_and_cache_examples(args.data_dir, model.ntokenizer, model.ctokneizer, is_training=True)
+        train_dataset = load_and_cache_examples(args.data_dir, "train",
+                                                model.ntokenizer, model.ctokneizer,
+                                                is_training=True, num_limit=100)
         global_step, tr_loss = train(args, train_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
@@ -367,14 +390,7 @@ def main():
         if args.do_train:
             logger.info("Loading checkpoints saved during training for evaluation")
             checkpoints = []
-            if args.eval_all_checkpoints:
-                checkpoints = list(
-                    os.path.dirname(c)
-                    for c in sorted(glob.glob(args.output_dir + "/**/" + "t_bert.pt", recursive=True))
-                )
-                logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce model loading logs
-            else:
-                checkpoints.append(os.path.join(args.output_dir, "final_model"))
+            checkpoints.append(os.path.join(args.output_dir, "final_model"))
         else:
             logger.info("Loading checkpoint %s for evaluation", args.model_path)
             checkpoints = [args.model_path]
@@ -382,19 +398,8 @@ def main():
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
         for checkpoint in checkpoints:
-            # Reload the model
-            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
-            model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
-            model.to(args.device)
-
-            # Evaluate
-            result = evaluate(args, model, prefix=global_step)
-            res_id = "_{}".format(global_step) if global_step else ""
-            results[res_id] = result
-        # # DEBUG. Use the trained model directly instead of loading from file
-        # result = evaluate(args, model, prefix=global_step)
-        # res_id = "_{}".format(global_step) if global_step else ""
-        # results[res_id] = result
+            result = evaluate_checkpoint(checkpoint, args)
+            results[checkpoint] = result
 
     logger.info("Results: {}".format(results))
     return results

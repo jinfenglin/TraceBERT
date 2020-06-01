@@ -17,18 +17,19 @@ from model2.TBert import TBert
 
 
 class CodeSearchNetReader:
-    def __init__(self, data_dir, lang='python'):
+    def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.lang = lang
         self.is_training = True
-        json_dir = os.path.join(self.data_dir, "code_search_net", self.lang, "final/jsonl")
-        self.train_dir = os.path.join(json_dir, 'train')  # Use only trianing data for now
-        self.valid = os.path.join(json_dir, 'valid')
-        self.test = os.path.join(json_dir, 'test')
 
-    def get_examples(self, num_limit=None):
+    def get_examples(self, type, num_limit=None):
+        """
+        :param type: train, valid, test
+        :param num_limit:
+        :return:
+        """
         examples = []
-        src_files = Path(self.train_dir).glob('*.gz')  # TODO modify this
+        json_dir = os.path.join(self.data_dir, "final/jsonl")
+        src_files = Path(os.path.join(json_dir, type)).glob('*.gz')
         for zfile in src_files:
             print("processing {}".format(zfile))
             with gzip.open(zfile, 'r') as fin:
@@ -71,11 +72,11 @@ class TBertProcessor:
                                            return_token_type_ids=False)
         nl = {
             "input_ids": nl_data['input_ids'],
-            "attention_mask": nl_data['attenion_mask']
+            "attention_mask": nl_data['attention_mask']
         }
         pl = {
             "input_ids": pl_data['input_ids'],
-            "attention_mask": pl_data['attenion_mask']
+            "attention_mask": pl_data['attention_mask']
         }
         return (nl, pl)
 
@@ -111,7 +112,7 @@ class TBertProcessor:
             PL_index = dict()
             nl_cnt = 0
             pl_cnt = 0
-            for f in features:
+            for f in tqdm(features, desc="assign ids to examples"):
                 # assign id to the features
                 nl_id = "N{}".format(nl_cnt)
                 pl_id = "P{}".format(pl_cnt)
@@ -126,7 +127,7 @@ class TBertProcessor:
 
             # create negative instances
             sample_time = 1
-            for f in features:
+            for f in tqdm(features, desc="creating negative features"):
                 nl, pl = f[0], f[1]
                 nl_id, pl_id = nl['id'], pl['id']
                 pos_pl_ids = rel_index[nl_id]
