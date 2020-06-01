@@ -258,8 +258,9 @@ def evaluate(args, dataset, model, prefix=""):
             outputs = model(**inputs)
             logit = outputs['logits']
             y_pred = logit.data.max(1)[1]
-            num_correct += y_pred.eq(label).long().sum().item()
-            print(y_pred, label)
+            batch_correct = y_pred.eq(label).long().sum().item()
+            num_correct += batch_correct
+            tqdm.write("pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist, batch_correct))
     accuracy = num_correct / len(dataset)
     return accuracy
 
