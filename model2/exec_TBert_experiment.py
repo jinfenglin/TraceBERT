@@ -1,19 +1,19 @@
 import argparse
-import glob
 import logging
 import multiprocessing
 import os
 import random
-import timeit
+import sys
 
 import torch
 import numpy as np
 from torch.optim import AdamW
-from torch.utils.data import RandomSampler, DataLoader, SequentialSampler
+from torch.utils.data import RandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
-from transformers import WEIGHTS_NAME, BertConfig, get_linear_schedule_with_warmup
+from transformers import BertConfig, get_linear_schedule_with_warmup
 
+sys.path.append("..")
 from model2 import CodeSearchNetReader, TBertProcessor
 from model2.TBert import TBert
 
