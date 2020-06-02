@@ -11,4 +11,5 @@ python exec_TBert_experiment.py \
 --gradient_accumulation_steps 1 \
 --num_train_epochs 3 \
 --learning_rate 5e-5 \
---overwrite
+--overwrite \
+--eval_checkpoint

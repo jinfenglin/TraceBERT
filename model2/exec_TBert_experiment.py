@@ -90,7 +90,6 @@ def train(args, train_dataset, model):
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
     )
 
-
     if args.fp16:
         try:
             from apex import amp
@@ -200,7 +199,7 @@ def train(args, train_dataset, model):
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar("accuracy",
                                          (tr_ac - logging_ac) / args.logging_steps / (
-                                                     args.train_batch_size * args.gradient_accumulation_steps),
+                                                 args.train_batch_size * args.gradient_accumulation_steps),
                                          global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
@@ -212,6 +211,9 @@ def train(args, train_dataset, model):
                     if not os.path.exists(ckpt_output_dir):
                         os.makedirs(ckpt_output_dir)
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
+                    if args.eval_checkpoint:
+                        valid_accuracy = evaluate_checkpoint(ckpt_output_dir, args)
+                        tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
                     logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
 
             if args.max_steps > 0 and global_step > args.max_steps:
@@ -281,7 +283,7 @@ def evaluate_checkpoint(checkpoint, args):
     model.to(args.device)
     eval_dataset = load_and_cache_examples(args.data_dir, "valid",
                                            model.ntokenizer, model.ctokneizer,
-                                           is_training=True, num_limit= 100, overwrite=args.overwrite)
+                                           is_training=True, num_limit=100, overwrite=args.overwrite)
     result = evaluate(args, eval_dataset, model)
     return result
 
@@ -298,6 +300,8 @@ def main():
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
+    parser.add_argument("--eval_checkpoint", action="store_true",
+                        help="Whether evaluate a checkpoint with valid dataset when save it")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
@@ -385,7 +389,7 @@ def main():
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit= 100, overwrite=args.overwrite)
+                                                is_training=True, num_limit=100, overwrite=args.overwrite)
         global_step, tr_loss = train(args, train_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
