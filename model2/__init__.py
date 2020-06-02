@@ -131,13 +131,17 @@ class TBertProcessor:
                 nl, pl = f[0], f[1]
                 nl_id, pl_id = nl['id'], pl['id']
                 pos_pl_ids = rel_index[nl_id]
-                sample_pool = set(PL_index.keys()) - set(pos_pl_ids)
-
-
-                for _ in range(sample_time):
-                    neg_pl_id = random.choice(list(sample_pool))
-                    sample_pool.remove(neg_pl_id)  # do not oversample in current experiment setup
-                    neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
+                for i in range(sample_time):
+                    for c in PL_index.keys():
+                        if c not in pos_pl_ids:
+                            neg_features.append((NL_index[nl_id], PL_index[c], 0))
+                # sample_pool = set(PL_index.keys()) - set(pos_pl_ids)
+                #
+                #
+                # for _ in range(sample_time):
+                #     neg_pl_id = random.choice(list(sample_pool))
+                #     sample_pool.remove(neg_pl_id)  # do not oversample in current experiment setup
+                #     neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
         else:
             pos_features = features
         dataset = self.features_to_data_set(pos_features + neg_features, is_training)
