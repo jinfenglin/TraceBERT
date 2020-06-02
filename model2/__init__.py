@@ -126,22 +126,23 @@ class TBertProcessor:
                 pl_cnt += 1
 
             # create negative instances
-            sample_time = 1
+            pl_id_list = list(PL_index.keys())
             for f in tqdm(features, desc="creating negative features"):
                 nl, pl = f[0], f[1]
                 nl_id, pl_id = nl['id'], pl['id']
                 pos_pl_ids = rel_index[nl_id]
-                for i in range(sample_time):
-                    for c in PL_index.keys():
-                        if c not in pos_pl_ids:
-                            neg_features.append((NL_index[nl_id], PL_index[c], 0))
-                # sample_pool = set(PL_index.keys()) - set(pos_pl_ids)
-                #
-                #
-                # for _ in range(sample_time):
-                #     neg_pl_id = random.choice(list(sample_pool))
-                #     sample_pool.remove(neg_pl_id)  # do not oversample in current experiment setup
-                #     neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
+                retry = 3
+                sample_time = 1
+                while sample_time > 0:
+                    neg_pl_id = pl_id_list[random.randint(0, len(pl_id_list) - 1)]
+                    if neg_pl_id not in pos_pl_ids:
+                        neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
+                        retry = 3
+                        sample_time -= 1
+                    else:
+                        retry -= 1
+                        if retry == 0:
+                            break
         else:
             pos_features = features
         dataset = self.features_to_data_set(pos_features + neg_features, is_training)
