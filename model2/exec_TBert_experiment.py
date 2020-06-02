@@ -234,7 +234,7 @@ def train(args, train_dataset, valid_dataset, model):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, dataset, model, eval_num, prefix=""):
+def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # eval_sampler = SequentialSampler(dataset)
     eval_sampler = RandomSampler(dataset, replacement=True, num_samples=eval_num)
@@ -246,8 +246,9 @@ def evaluate(args, dataset, model, eval_num, prefix=""):
 
     # Eval!
     logger.info("***** Running evaluation {} *****".format(prefix))
-    logger.info("  Num examples = %d", len(dataset))
-    logger.info("  Batch size = %d", args.eval_batch_size)
+    if print_detail:
+        logger.info("  Num examples = %d", len(dataset))
+        logger.info("  Batch size = %d", args.eval_batch_size)
 
     num_correct = 0
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
@@ -266,9 +267,11 @@ def evaluate(args, dataset, model, eval_num, prefix=""):
             y_pred = logit.data.max(1)[1]
             batch_correct = y_pred.eq(label).long().sum().item()
             num_correct += batch_correct
-            tqdm.write(
-                "pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist(), batch_correct))
-    accuracy = num_correct / len(dataset)
+            if print_detail:
+                tqdm.write(
+                    "pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist(), batch_correct))
+    accuracy = num_correct / eval_num
+    logger.info("evaluate accuracy={}".format(accuracy))
     return accuracy
 
 
