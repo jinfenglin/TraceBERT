@@ -64,7 +64,7 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     return dataset
 
 
-def train(args, train_dataset, model):
+def train(args, train_dataset, valid_dataset, model):
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
 
@@ -213,7 +213,7 @@ def train(args, train_dataset, model):
                         os.makedirs(ckpt_output_dir)
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
                     if args.ckpt_eval_num:
-                        valid_accuracy = evaluate_checkpoint(ckpt_output_dir, args, args.ckpt_eval_num)
+                        valid_accuracy = evaluate(args, valid_dataset, model, args.ckpt_eval_num)
                         tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
                     logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
 
@@ -237,7 +237,7 @@ def train(args, train_dataset, model):
 def evaluate(args, dataset, model, eval_num, prefix=""):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # eval_sampler = SequentialSampler(dataset)
-    eval_sampler = RandomSampler(dataset, num_samples=eval_num)
+    eval_sampler = RandomSampler(dataset, replacement=True, num_samples=eval_num)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
     # multi-gpu evaluate
@@ -279,7 +279,7 @@ def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
     torch.save(scheduler.state_dict(), os.path.join(ckpt_dir, "scheduler.pt"))
 
 
-def evaluate_checkpoint(checkpoint, args, eval_num):
+def evaluate_checkpoint(checkpoint, eval_dataset, args, eval_num):
     """
 
     :param checkpoint:  path to checkpiont directory
@@ -289,9 +289,6 @@ def evaluate_checkpoint(checkpoint, args, eval_num):
     """
     model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
     model.to(args.device)
-    eval_dataset = load_and_cache_examples(args.data_dir, "valid",
-                                           model.ntokenizer, model.ctokneizer,
-                                           is_training=True, num_limit=None, overwrite=args.overwrite)
     if not eval_num:
         eval_num = len(eval_dataset)
     result = evaluate(args, eval_dataset, model, eval_num)
@@ -312,7 +309,6 @@ def main():
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
     parser.add_argument("--ckpt_eval_num", type=int, default=100,
                         help="number of instances used for evaluating the checkpoint performance")
-    parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
@@ -395,15 +391,17 @@ def main():
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
+    valid_dataset = load_and_cache_examples(args.data_dir, "valid",
+                                            model.ntokenizer, model.ctokneizer,
+                                            is_training=True, num_limit=100, overwrite=args.overwrite)
     # Training
     if args.do_train:
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
                                                 is_training=True, num_limit=100, overwrite=args.overwrite)
-        global_step, tr_loss = train(args, train_dataset, model)
+        global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
-
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
@@ -418,7 +416,7 @@ def main():
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
         for checkpoint in checkpoints:
-            result = evaluate_checkpoint(checkpoint, args, None)
+            result = evaluate_checkpoint(checkpoint, valid_dataset, args, None)
             results[checkpoint] = result
 
     logger.info("Results: {}".format(results))
