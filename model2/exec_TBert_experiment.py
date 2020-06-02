@@ -89,11 +89,7 @@ def train(args, train_dataset, model):
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
     )
-    optmz_path = os.path.join(args.model_path, "optimizer.pt")
-    sched_path = os.path.join(args.model_path, "scheduler.pt")
-    if os.path.isfile(optmz_path) and os.path.isfile(sched_path):
-        optimizer.load_state_dict(torch.load(optmz_path))
-        scheduler.load_state_dict(torch.load(sched_path))
+
 
     if args.fp16:
         try:
@@ -134,6 +130,12 @@ def train(args, train_dataset, model):
             global_step = int(checkpoint_suffix)
             epochs_trained = global_step // (len(train_dataloader) // args.gradient_accumulation_steps)
             steps_trained_in_current_epoch = global_step % (len(train_dataloader) // args.gradient_accumulation_steps)
+
+            optmz_path = os.path.join(args.model_path, "optimizer.pt")
+            sched_path = os.path.join(args.model_path, "scheduler.pt")
+            if os.path.isfile(optmz_path) and os.path.isfile(sched_path):
+                optimizer.load_state_dict(torch.load(optmz_path))
+                scheduler.load_state_dict(torch.load(sched_path))
 
             logger.info("  Continuing training from checkpoint, will skip to saved global_step")
             logger.info("  Continuing training from epoch %d", epochs_trained)
@@ -190,17 +192,17 @@ def train(args, train_dataset, model):
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
                 optimizer.step()
-                scheduler.step()  # Update learning rate schedule
+                scheduler.step()
                 model.zero_grad()
                 global_step += 1
 
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
-                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     tb_writer.add_scalar("accuracy",
                                          (tr_ac - logging_ac) / args.logging_steps / (
                                                      args.train_batch_size * args.gradient_accumulation_steps),
                                          global_step)
+                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
                     logging_ac = tr_ac
 
@@ -279,7 +281,7 @@ def evaluate_checkpoint(checkpoint, args):
     model.to(args.device)
     eval_dataset = load_and_cache_examples(args.data_dir, "valid",
                                            model.ntokenizer, model.ctokneizer,
-                                           is_training=True, num_limit=100, overwrite=args.overwrite)
+                                           is_training=True, num_limit= 100, overwrite=args.overwrite)
     result = evaluate(args, eval_dataset, model)
     return result
 
@@ -318,7 +320,7 @@ def main():
     parser.add_argument(
         "--output_dir", default=None, type=str, required=True,
         help="The output directory where the model checkpoints and predictions will be written.", )
-    parser.add_argument("--learning_rate", default=1e-5, type=float, help="The initial learning rate for Adam.")
+    parser.add_argument("--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.")
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
@@ -383,7 +385,7 @@ def main():
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=100, overwrite=args.overwrite)
+                                                is_training=True, num_limit= 100, overwrite=args.overwrite)
         global_step, tr_loss = train(args, train_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 

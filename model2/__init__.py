@@ -132,6 +132,8 @@ class TBertProcessor:
                 nl_id, pl_id = nl['id'], pl['id']
                 pos_pl_ids = rel_index[nl_id]
                 sample_pool = set(PL_index.keys()) - set(pos_pl_ids)
+
+
                 for _ in range(sample_time):
                     neg_pl_id = random.choice(list(sample_pool))
                     sample_pool.remove(neg_pl_id)  # do not oversample in current experiment setup
