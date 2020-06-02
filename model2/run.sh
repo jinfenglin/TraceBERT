@@ -12,4 +12,4 @@ python exec_TBert_experiment.py \
 --num_train_epochs 3 \
 --learning_rate 5e-5 \
 --overwrite \
---eval_checkpoint
+--ckpt_eval_num 100

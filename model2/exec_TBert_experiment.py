@@ -37,6 +37,7 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     :param tokenizer:
     :param evaluate:
     :param output_examples:
+    :param num_limit the max number of instances read from the data file
     :return:
     """
     # Load data features from cache or dataset file
@@ -211,8 +212,8 @@ def train(args, train_dataset, model):
                     if not os.path.exists(ckpt_output_dir):
                         os.makedirs(ckpt_output_dir)
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
-                    if args.eval_checkpoint:
-                        valid_accuracy = evaluate_checkpoint(ckpt_output_dir, args)
+                    if args.ckpt_eval_num:
+                        valid_accuracy = evaluate_checkpoint(ckpt_output_dir, args, args.ckpt_eval_num)
                         tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
                     logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
 
@@ -233,10 +234,10 @@ def train(args, train_dataset, model):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, dataset, model, prefix=""):
+def evaluate(args, dataset, model, eval_num, prefix=""):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # eval_sampler = SequentialSampler(dataset)
-    eval_sampler = RandomSampler(dataset)
+    eval_sampler = RandomSampler(dataset, num_samples=eval_num)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
     # multi-gpu evaluate
@@ -278,13 +279,22 @@ def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
     torch.save(scheduler.state_dict(), os.path.join(ckpt_dir, "scheduler.pt"))
 
 
-def evaluate_checkpoint(checkpoint, args):
+def evaluate_checkpoint(checkpoint, args, eval_num):
+    """
+
+    :param checkpoint:  path to checkpiont directory
+    :param args:
+    :param num_limit: size of valid dataset that will attend evaluation
+    :return:
+    """
     model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
     model.to(args.device)
     eval_dataset = load_and_cache_examples(args.data_dir, "valid",
                                            model.ntokenizer, model.ctokneizer,
-                                           is_training=True, num_limit=100, overwrite=args.overwrite)
-    result = evaluate(args, eval_dataset, model)
+                                           is_training=True, num_limit=None, overwrite=args.overwrite)
+    if not eval_num:
+        eval_num = len(eval_dataset)
+    result = evaluate(args, eval_dataset, model, eval_num)
     return result
 
 
@@ -300,8 +310,9 @@ def main():
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
-    parser.add_argument("--eval_checkpoint", action="store_true",
-                        help="Whether evaluate a checkpoint with valid dataset when save it")
+    parser.add_argument("--ckpt_eval_num", type=int, default=100,
+                        help="number of instances used for evaluating the checkpoint performance")
+    parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
@@ -407,7 +418,7 @@ def main():
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
         for checkpoint in checkpoints:
-            result = evaluate_checkpoint(checkpoint, args)
+            result = evaluate_checkpoint(checkpoint, args, None)
             results[checkpoint] = result
 
     logger.info("Results: {}".format(results))
