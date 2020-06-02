@@ -40,7 +40,46 @@ from transformers.modeling_bert import BertOnlyNSPHead, BertLayer, BertForNextSe
 #         seq_relationship_score = self.regression_header(pooled_output)
 #         return seq_relationship_score
 
+
+class AvgPooler(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.activation = nn.Tanh()
+
+    def forward(self, hidden_states):
+        avg_tensor = torch.mean(hidden_states, dim=1)
+        pooled_output = self.dense(avg_tensor)
+        pooled_output = self.activation(pooled_output)
+        return pooled_output
+
+
+class RelationClassifyHeader2(nn.Module):
+    """
+    H2:
+    use averaging pooling across tokens to replace first_token_pooling
+    """
+
+    def __init__(self, config):
+        super().__init__()
+        self.relation_layer = nn.Linear(config.hidden_size * 2, 2)
+        self.nl_pooler = AvgPooler(config)
+        self.pl_pooler = AvgPooler(config)
+
+    def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
+        pool_code_hidden = self.pl_pooler(code_hidden)
+        pool_text_hidden = self.nl_pooler(text_hidden)
+        concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
+        seq_relationship_score = self.relation_layer(concated_hidden)
+        return seq_relationship_score
+
+
 class RelationClassifyHeader_no_transformer(nn.Module):
+    """
+    H1:
+    Problem with this head is that the loss converge at a very high value
+    """
+
     def __init__(self, config):
         super().__init__()
         self.relation_layer = nn.Linear(config.hidden_size * 2, 2)
@@ -66,7 +105,8 @@ class TBert(PreTrainedModel):
 
         self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
         self.nbert = AutoModel.from_pretrained(nbert_model)
-        self.cls = RelationClassifyHeader_no_transformer(config)
+        # self.cls = RelationClassifyHeader_no_transformer(config)
+        self.cls = RelationClassifyHeader2(config)
 
     def forward(
             self,
