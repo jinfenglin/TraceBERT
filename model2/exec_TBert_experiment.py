@@ -70,7 +70,7 @@ def train(args, train_dataset, valid_dataset, model):
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size, drop_last=True)
 
     if args.max_steps > 0:
         t_total = args.max_steps
@@ -396,13 +396,13 @@ def main():
 
     valid_dataset = load_and_cache_examples(args.data_dir, "valid",
                                             model.ntokenizer, model.ctokneizer,
-                                            is_training=True, num_limit=300, overwrite=args.overwrite)
+                                            is_training=True, num_limit=500, overwrite=args.overwrite)
     # Training
     if args.do_train:
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=1000, overwrite=args.overwrite)
+                                                is_training=True, num_limit=2000, overwrite=args.overwrite)
         global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
