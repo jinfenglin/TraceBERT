@@ -62,14 +62,15 @@ class RelationClassifyHeader2(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.relation_layer = nn.Linear(128, 2)
-        self.dense_layer = nn.Linear(config.hidden_size * 2, 128)
+        self.relation_layer = nn.Linear(64, 2)
+        self.dense_layer = nn.Linear(config.hidden_size * 2, 64)
         self.pooler = torch.nn.AdaptiveAvgPool2d((1, config.hidden_size))
+        self.hidden_size = config.hidden_size
 
     def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
-        pool_code_hidden = self.pooler(code_hidden)
-        pool_text_hidden = self.pooler(text_hidden)
-        concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 2)
+        pool_code_hidden = self.pooler(code_hidden).view(-1, self.hidden_size)
+        pool_text_hidden = self.pooler(text_hidden).view(-1, self.hidden_size)
+        concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
         _hidden = self.dense_layer(concated_hidden)
         seq_relationship_score = self.relation_layer(_hidden)
         return seq_relationship_score
@@ -99,7 +100,8 @@ class TBert(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         cbert_model = "huggingface/CodeBERTa-small-v1"
-        nbert_model = "bert-base-uncased"
+        # nbert_model = "bert-base-uncased"
+        nbert_model = "roberta-base"
 
         self.ctokneizer = AutoTokenizer.from_pretrained(cbert_model)
         self.cbert = AutoModel.from_pretrained(cbert_model)

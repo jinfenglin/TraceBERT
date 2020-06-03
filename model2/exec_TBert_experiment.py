@@ -271,7 +271,7 @@ def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
                 tqdm.write(
                     "pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist(), batch_correct))
     accuracy = num_correct / eval_num
-    logger.info("evaluate accuracy={}".format(accuracy))
+    tqdm.write("evaluate accuracy={}".format(accuracy))
     return accuracy
 
 
@@ -396,13 +396,13 @@ def main():
 
     valid_dataset = load_and_cache_examples(args.data_dir, "valid",
                                             model.ntokenizer, model.ctokneizer,
-                                            is_training=True, num_limit=100, overwrite=args.overwrite)
+                                            is_training=True, num_limit=None, overwrite=args.overwrite)
     # Training
     if args.do_train:
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=100, overwrite=args.overwrite)
+                                                is_training=True, num_limit=None, overwrite=args.overwrite)
         global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
