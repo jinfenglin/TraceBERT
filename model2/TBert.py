@@ -3,9 +3,10 @@ import os
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, BCELoss, BCEWithLogitsLoss
+from torch.nn.functional import relu
 from transformers import PreTrainedModel, BertConfig, AutoTokenizer, AutoModelWithLMHead, RobertaTokenizer, \
     RobertaForSequenceClassification, TextClassificationPipeline, AutoModel, BertTokenizer
-
+import torch.nn.functional as F
 # create directly applyable dataset examples in squad.py
 # conducting training run_squad.py
 # define a new classification header bert_modeling.py
@@ -47,10 +48,11 @@ class AvgPooler(nn.Module):
         self.hidden_size = config.hidden_size
         self.pooler = torch.nn.AdaptiveAvgPool2d((1, config.hidden_size))
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.activation = nn.Tanh()
 
     def forward(self, hidden_states):
         pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
-        return self.dense(pool_hidden)
+        return self.activation(self.dense(pool_hidden))
 
 
 class RelationClassifyHeader2(nn.Module):
@@ -61,16 +63,17 @@ class RelationClassifyHeader2(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.relation_layer = nn.Linear(64, 2)
-        self.dense_layer = nn.Linear(config.hidden_size * 2, 64)
-        self.pooler = AvgPooler(config)
         self.hidden_size = config.hidden_size
+        self.code_pooler = AvgPooler(config)
+        self.text_pooler = AvgPooler(config)
+        self.dense_layer = nn.Linear(config.hidden_size * 2, 128)
+        self.relation_layer = nn.Linear(128, 2)
 
     def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
         pool_code_hidden = self.pooler(code_hidden)
         pool_text_hidden = self.pooler(text_hidden)
         concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
-        _hidden = self.dense_layer(concated_hidden)
+        _hidden = F.relu(self.dense_layer(concated_hidden))
         seq_relationship_score = self.relation_layer(_hidden)
         return seq_relationship_score
 
