@@ -50,12 +50,23 @@ class AvgPooler(nn.Module):
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.activation = nn.Tanh()
 
+    # def forward(self, hidden_states, attention_mask):
+    #     pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
+    #     return self.activation(self.dense(pool_hidden))
+
     def forward(self, hidden_states, attention_mask):
-        seq_len = list(hidden_states.size())[1]
-        attention_mask = attention_mask.view(1, seq_len, 1) > 0  # change the shape of tensor to fit masked_select
-        masked_hidden = torch.masked_select(hidden_states, attention_mask).view(1, -1, self.hidden_size)
-        pool_hidden = self.pooler(masked_hidden).view(-1, self.hidden_size)
+        pool_hidden = self.custom_avg_pooler(hidden_states, attention_mask)
         return self.activation(self.dense(pool_hidden))
+
+    def custom_avg_pooler(self, hidden_states, attention_mask):
+        pooled_tensors = []
+        for item, mask in zip(hidden_states, attention_mask):  # shape of (512,728)
+            mask = (mask > 0)
+            # token features after masking
+            masked_hidden = torch.masked_select(item, mask.view(-1, 1)).view(-1,self.hidden_size)
+            pooled_hidden = torch.mean(masked_hidden, dim=0)
+            pooled_tensors.append(pooled_hidden)
+        return torch.stack(pooled_tensors)
 
 
 class RelationClassifyHeader2(nn.Module):

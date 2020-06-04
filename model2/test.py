@@ -1,16 +1,33 @@
 import torch
 
+
+def custom_avg_pooler(hidden_states, attention_mask):
+    pooled_tensors = []
+    for item, mask in zip(hidden_states, attention_mask):  # shape of (512,728)
+        mask = (mask > 0)
+        # token features after masking
+        masked_hidden = torch.masked_select(item, mask.view(-1, 1)).view(-1, 3)
+        pooled_hidden = torch.mean(masked_hidden, dim=0)
+        pooled_tensors.append(pooled_hidden)
+    return torch.stack(pooled_tensors)
+
+
 x = torch.tensor([[[.1, .2, .4],
                    [5., 6., 7.],
                    [8., 9., 10.],
-                   [11., 12., 13.]]])
-print(x.size())
-mask = [[1, 0, 1, 0]]
-torch.BoolTensor()
-mask = torch.BoolTensor(mask)
-print(mask)
-mask = mask.view(1, 4, 1)
-print(mask)
-z = torch.masked_select(x, mask).view(1, -1, 3)
+                   [11., 12., 13.]],
+
+                  [[.1, .2, .4],
+                   [5., 6., 7.],
+                   [8., 9., 10.],
+                   [11., 12., 13.]]
+
+                  ])
+
+mask = [[1, 0, 1, 0],
+        [1, 1, 1, 0]]
+mask = torch.tensor(mask)
+
+z = custom_avg_pooler(x, mask)
 print(z)
 pass
