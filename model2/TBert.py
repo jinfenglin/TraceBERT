@@ -48,25 +48,27 @@ class AvgPooler(nn.Module):
         self.hidden_size = config.hidden_size
         self.pooler = torch.nn.AdaptiveAvgPool2d((1, config.hidden_size))
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        self.activation = nn.Tanh()
-
-    # def forward(self, hidden_states, attention_mask):
-    #     pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
-    #     return self.activation(self.dense(pool_hidden))
+        # self.activation = nn.Tanh()
+        self.activation = nn.ReLU()
 
     def forward(self, hidden_states, attention_mask):
-        pool_hidden = self.custom_avg_pooler(hidden_states, attention_mask)
+        pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
         return self.activation(self.dense(pool_hidden))
 
-    def custom_avg_pooler(self, hidden_states, attention_mask):
-        pooled_tensors = []
-        for item, mask in zip(hidden_states, attention_mask):  # shape of (512,728)
-            mask = (mask > 0)
-            # token features after masking
-            masked_hidden = torch.masked_select(item, mask.view(-1, 1)).view(-1,self.hidden_size)
-            pooled_hidden = torch.mean(masked_hidden, dim=0)
-            pooled_tensors.append(pooled_hidden)
-        return torch.stack(pooled_tensors)
+    # remove padding from average pooling does not improve result
+    # def forward(self, hidden_states, attention_mask):
+    #     pool_hidden = self.custom_avg_pooler(hidden_states, attention_mask)
+    #     return self.activation(self.dense(pool_hidden))
+    #
+    # def custom_avg_pooler(self, hidden_states, attention_mask):
+    #     pooled_tensors = []
+    #     for item, mask in zip(hidden_states, attention_mask):  # shape of (512,728)
+    #         mask = (mask > 0)
+    #         # token features after masking
+    #         masked_hidden = torch.masked_select(item, mask.view(-1, 1)).view(-1,self.hidden_size)
+    #         pooled_hidden = torch.mean(masked_hidden, dim=0)
+    #         pooled_tensors.append(pooled_hidden)
+    #     return torch.stack(pooled_tensors)
 
 
 class RelationClassifyHeader2(nn.Module):
