@@ -70,7 +70,8 @@ def train(args, train_dataset, valid_dataset, model):
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size, drop_last=True)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size,
+                                  drop_last=True)
 
     if args.max_steps > 0:
         t_total = args.max_steps
@@ -212,10 +213,12 @@ def train(args, train_dataset, valid_dataset, model):
                     if not os.path.exists(ckpt_output_dir):
                         os.makedirs(ckpt_output_dir)
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
-                    if args.ckpt_eval_num:
-                        valid_accuracy = evaluate(args, valid_dataset, model, args.ckpt_eval_num)
-                        tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
                     logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
+
+                if args.valid_step > 0 and global_step % args.valid_step:
+                    if args.valid_num:
+                        valid_accuracy = evaluate(args, valid_dataset, model, args.valid_num)
+                        tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
 
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
@@ -310,8 +313,10 @@ def main():
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
-    parser.add_argument("--ckpt_eval_num", type=int, default=100,
+    parser.add_argument("--valid_num", type=int, default=100,
                         help="number of instances used for evaluating the checkpoint performance")
+    parser.add_argument("--valid_step", type=int, default=50,
+                        help="obtain validation accuracy every given steps")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")

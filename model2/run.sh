@@ -8,7 +8,8 @@ python exec_TBert_experiment.py \
 --per_gpu_eval_batch_size 8 \
 --logging_steps 1 \
 --save_steps 1000 \
---gradient_accumulation_steps 8 \
+--gradient_accumulation_steps 4 \
 --num_train_epochs 5 \
 --learning_rate 4e-5 \
---ckpt_eval_num 600 \
+--valid_num 100 \
+--valid_step 50
