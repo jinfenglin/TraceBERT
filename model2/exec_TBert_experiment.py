@@ -396,13 +396,13 @@ def main():
 
     valid_dataset = load_and_cache_examples(args.data_dir, "valid",
                                             model.ntokenizer, model.ctokneizer,
-                                            is_training=True, num_limit=1000, overwrite=args.overwrite)
+                                            is_training=True, num_limit=None, overwrite=args.overwrite)
     # Training
     if args.do_train:
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=600, overwrite=args.overwrite)
+                                                is_training=True, num_limit=None, overwrite=args.overwrite)
         global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
     # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
