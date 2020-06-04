@@ -55,6 +55,8 @@ class TBertProcessor:
     We refer the features as the processed data that can be fed directly to TBert
     TODO move the functions out of this class as they can be reused to create dataset other than CodeSearchNet
     """
+    def clean(self,text):
+        return " ".join(text.split())
 
     def process_example(self, example, NL_tokenizer, PL_tokenizer, max_length):
         """
@@ -65,10 +67,10 @@ class TBertProcessor:
         # return input_ids and attention mask.
         # attention_mask is important to filter out the paddings
         # https://huggingface.co/transformers/main_classes/tokenizer.html#transformers.PreTrainedTokenizer.encode_plus
-        nl_data = NL_tokenizer.encode_plus(example['NL'], max_length=max_length,
+        nl_data = NL_tokenizer.encode_plus(self.clean(example['NL']), max_length=max_length,
                                            pad_to_max_length=True, return_attention_mask=True,
                                            return_token_type_ids=False)
-        pl_data = PL_tokenizer.encode_plus(example['PL'], max_length=max_length,
+        pl_data = PL_tokenizer.encode_plus(self.clean(example['PL']), max_length=max_length,
                                            pad_to_max_length=True, return_attention_mask=True,
                                            return_token_type_ids=False)
         nl = {

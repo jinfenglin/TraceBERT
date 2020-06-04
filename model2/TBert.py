@@ -2,15 +2,10 @@ import os
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss, BCELoss, BCEWithLogitsLoss
-from torch.nn.functional import relu
-from transformers import PreTrainedModel, BertConfig, AutoTokenizer, AutoModelWithLMHead, RobertaTokenizer, \
-    RobertaForSequenceClassification, TextClassificationPipeline, AutoModel, BertTokenizer
+from torch.nn import CrossEntropyLoss
+from transformers import PreTrainedModel, BertConfig, AutoTokenizer, AutoModel
 import torch.nn.functional as F
-# create directly applyable dataset examples in squad.py
-# conducting training run_squad.py
-# define a new classification header bert_modeling.py
-from transformers.modeling_bert import BertOnlyNSPHead, BertLayer, BertForNextSentencePrediction, BertPooler, BertModel
+from transformers.modeling_bert import BertPooler
 
 
 # class AveragePooler(nn.Module):
@@ -48,8 +43,8 @@ class AvgPooler(nn.Module):
         self.hidden_size = config.hidden_size
         self.pooler = torch.nn.AdaptiveAvgPool2d((1, config.hidden_size))
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        # self.activation = nn.Tanh()
-        self.activation = nn.ReLU()
+        self.activation = nn.Tanh()
+        # self.activation = nn.ReLU()
 
     def forward(self, hidden_states, attention_mask):
         pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
