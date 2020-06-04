@@ -51,8 +51,9 @@ class AvgPooler(nn.Module):
         self.activation = nn.Tanh()
 
     def forward(self, hidden_states, attention_mask):
-        batch_size = list(hidden_states.size())[1]
-        masked_hidden = torch.masked_select(hidden_states, attention_mask).view(batch_size, -1)
+        seq_len = list(hidden_states.size())[1]
+        attention_mask = attention_mask.view(1, seq_len, 1) > 0  # change the shape of tensor to fit masked_select
+        masked_hidden = torch.masked_select(hidden_states, attention_mask).view(1, -1, self.hidden_size)
         pool_hidden = self.pooler(masked_hidden).view(-1, self.hidden_size)
         return self.activation(self.dense(pool_hidden))
 
