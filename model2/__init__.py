@@ -41,6 +41,7 @@ class CodeSearchNetReader:
                     jobj = json.loads(line)
                     code = jobj['code']
                     doc_str = jobj['docstring']
+                    code = code.replace(doc_str, "")
                     example = {
                         "NL": doc_str,
                         "PL": code

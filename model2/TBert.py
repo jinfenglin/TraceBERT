@@ -70,8 +70,8 @@ class RelationClassifyHeader2(nn.Module):
         self.relation_layer = nn.Linear(128, 2)
 
     def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
-        pool_code_hidden = self.pooler(code_hidden)
-        pool_text_hidden = self.pooler(text_hidden)
+        pool_code_hidden = self.code_pooler(code_hidden)
+        pool_text_hidden = self.text_pooler(text_hidden)
         concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
         _hidden = F.relu(self.dense_layer(concated_hidden))
         seq_relationship_score = self.relation_layer(_hidden)
