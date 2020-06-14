@@ -42,9 +42,9 @@ class AvgPooler(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
         self.pooler = torch.nn.AdaptiveAvgPool2d((1, config.hidden_size))
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        # self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         # self.activation = nn.Tanh()
-        self.activation = nn.ReLU()
+        # self.activation = nn.ReLU()
 
     def forward(self, hidden_states, attention_mask):
         pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)

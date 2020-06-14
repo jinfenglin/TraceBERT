@@ -9,3 +9,4 @@ runs
 output
 *.pyc
 __pycache__
+*/VSM_baseline/*.csv

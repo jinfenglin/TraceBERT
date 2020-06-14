@@ -21,6 +21,15 @@ class CodeSearchNetReader:
         self.data_dir = data_dir
         self.is_training = True
 
+    def get_summary_from_docstring(self, docstring):
+        summary = []
+        for line in docstring.split("\n"):
+            clean_line = line.strip("\n\t\r ")
+            if len(clean_line) == 0:
+                break
+            summary.append(clean_line)
+        return " ".join(summary)
+
     def get_examples(self, type, num_limit=None):
         """
         :param type: train, valid, test
@@ -41,7 +50,10 @@ class CodeSearchNetReader:
                     jobj = json.loads(line)
                     code = jobj['code']
                     doc_str = jobj['docstring']
+                    if len(doc_str) < 5:
+                        continue
                     code = code.replace(doc_str, "")
+                    doc_str = self.get_summary_from_docstring(doc_str)
                     example = {
                         "NL": doc_str,
                         "PL": code
@@ -55,7 +67,8 @@ class TBertProcessor:
     We refer the features as the processed data that can be fed directly to TBert
     TODO move the functions out of this class as they can be reused to create dataset other than CodeSearchNet
     """
-    def clean(self,text):
+
+    def clean(self, text):
         return " ".join(text.split())
 
     def process_example(self, example, NL_tokenizer, PL_tokenizer, max_length):
