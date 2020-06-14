@@ -47,8 +47,9 @@ class AvgPooler(nn.Module):
         # self.activation = nn.ReLU()
 
     def forward(self, hidden_states, attention_mask):
-        pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
-        return self.activation(self.dense(pool_hidden))
+        # pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
+        # return self.activation(self.dense(pool_hidden))
+        return self.pooler(hidden_states).view(-1, self.hidden_size)
 
     # remove padding from average pooling does not improve result
     # def forward(self, hidden_states, attention_mask):

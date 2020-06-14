@@ -6,9 +6,9 @@ python exec_TBert_experiment.py \
 --model_path ./output \
 --per_gpu_train_batch_size 8 \
 --per_gpu_eval_batch_size 8 \
---logging_steps 1 \
+--logging_steps 5 \
 --save_steps 1000 \
---gradient_accumulation_steps 4 \
+--gradient_accumulation_steps 16 \
 --num_train_epochs 5 \
 --learning_rate 4e-5 \
 --valid_num 100 \
