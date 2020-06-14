@@ -70,7 +70,7 @@ class TBertProcessor:
         nl_data = NL_tokenizer.encode_plus(self.clean(example['NL']), max_length=max_length,
                                            pad_to_max_length=True, return_attention_mask=True,
                                            return_token_type_ids=False)
-        pl_data = PL_tokenizer.encode_plus(self.clean(example['PL']), max_length=max_length,
+        pl_data = PL_tokenizer.encode_plus(example['PL'], max_length=max_length,
                                            pad_to_max_length=True, return_attention_mask=True,
                                            return_token_type_ids=False)
         nl = {

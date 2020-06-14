@@ -152,6 +152,7 @@ def train(args, train_dataset, valid_dataset, model):
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
     set_seed(args)
+    step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
@@ -196,6 +197,8 @@ def train(args, train_dataset, valid_dataset, model):
                 scheduler.step()
                 model.zero_grad()
                 global_step += 1
+                step_bar.update(1)
+
 
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
@@ -215,7 +218,7 @@ def train(args, train_dataset, valid_dataset, model):
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
                     logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
 
-                if args.valid_step > 0 and global_step % args.valid_step:
+                if args.valid_step > 0 and global_step % args.valid_step == 0:
                     if args.valid_num:
                         valid_accuracy = evaluate(args, valid_dataset, model, args.valid_num)
                         tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
@@ -226,6 +229,7 @@ def train(args, train_dataset, valid_dataset, model):
         if args.max_steps > 0 and global_step > args.max_steps:
             train_iterator.close()
             break
+    step_bar.close()
 
     logger.info("Save the trained model...")
     model_output = os.path.join(args.output_dir, "final_model")
