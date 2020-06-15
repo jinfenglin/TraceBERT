@@ -48,8 +48,8 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
     pl_cnt = 0
     for f in tqdm(features, desc="assign ids to examples"):
         # assign id to the features
-        nl_id = "N{}".format(nl_cnt)
-        pl_id = "P{}".format(pl_cnt)
+        nl_id = "{}".format(nl_cnt)
+        pl_id = "{}".format(pl_cnt)
         f[0]['id'] = nl_id
         f[1]['id'] = pl_id
         NL_index[nl_id] = f[0]
