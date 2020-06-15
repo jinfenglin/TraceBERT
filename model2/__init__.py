@@ -55,7 +55,7 @@ class CodeSearchNetReader:
                     jobj = json.loads(line)
                     code = jobj['code']
                     doc_str = jobj['docstring']
-                    code = code.replace("\"+" + doc_str + "\"+", "")
+                    code = code.replace(doc_str, "")
                     doc_str = self.get_summary_from_docstring(doc_str)
                     if len(doc_str.split()) < 3:
                         continue
