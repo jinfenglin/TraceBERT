@@ -2,6 +2,7 @@ import gzip
 import json
 import os
 import random
+import re
 from collections import defaultdict
 from functools import partial
 from multiprocessing.pool import Pool
@@ -24,9 +25,13 @@ class CodeSearchNetReader:
     def get_summary_from_docstring(self, docstring):
         summary = []
         for line in docstring.split("\n"):
-            clean_line = line.strip("\n\t\r ")
+            clean_line = line.strip("\n\t\r \"")
             if len(clean_line) == 0:
                 break
+            if clean_line.startswith(":") or clean_line.startswith("TODO") \
+                    or clean_line.startswith("Parameter") or clean_line.startswith("http"):
+                break
+
             summary.append(clean_line)
         return " ".join(summary)
 
@@ -50,10 +55,10 @@ class CodeSearchNetReader:
                     jobj = json.loads(line)
                     code = jobj['code']
                     doc_str = jobj['docstring']
-                    if len(doc_str) < 5:
-                        continue
-                    code = code.replace(doc_str, "")
+                    code = code.replace("\"+" + doc_str + "\"+", "")
                     doc_str = self.get_summary_from_docstring(doc_str)
+                    if len(doc_str.split()) < 3:
+                        continue
                     example = {
                         "NL": doc_str,
                         "PL": code

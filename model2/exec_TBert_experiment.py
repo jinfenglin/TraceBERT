@@ -16,6 +16,7 @@ from transformers import BertConfig, get_linear_schedule_with_warmup
 sys.path.append("..")
 from model2 import CodeSearchNetReader, TBertProcessor
 from model2.TBert import TBert
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,16 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
+def save_examples(exampls, output_file):
+    nl = []
+    pl = []
+    df = pd.DataFrame()
+    for exmp in exampls:
+        nl.append(exmp['NL'])
+        pl.append(exmp['PL'])
+    df['NL'] = nl
+    df['PL'] = pl
+    df.to_csv(output_file)
 
 def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
                             thread_num=None, num_limit=None):
@@ -48,6 +59,7 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
     cached_file = os.path.join(cache_dir, "cached_{}.dat".format(data_type))
+    example_debug_file = os.path.join(cache_dir, "debug_{}.dat".format(data_type))
     # Init features and dataset from cache if it exists
     if os.path.exists(cached_file) and not overwrite:
         logger.info("Loading features from cached file %s", cached_file)
@@ -57,6 +69,7 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
         csn_reader = CodeSearchNetReader(data_dir)
         examples = csn_reader.get_examples(type=data_type, num_limit=num_limit)
         logger.info("Creating features for {} dataset with num of {}".format(data_type, len(examples)))
+        save_examples(examples, example_debug_file) # save examples for debugging purpose
         dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
                                                                is_training=is_training, threads=thread_num)
         logger.info("Saving features into cached file {}".format(cached_file))
@@ -198,7 +211,6 @@ def train(args, train_dataset, valid_dataset, model):
                 model.zero_grad()
                 global_step += 1
                 step_bar.update(1)
-
 
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
