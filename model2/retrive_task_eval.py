@@ -6,7 +6,7 @@ from multiprocessing.pool import Pool
 
 import torch
 from torch.utils.data import DataLoader
-from tqdm.gui import tqdm
+from tqdm import tqdm
 
 from model2 import CodeSearchNetReader, TBertProcessor
 import pandas as pd
@@ -36,7 +36,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         )
         features = list(
             tqdm(
-                p.imap(annotate_, examples, chunksize=32),
+                p.imap(annotate_, examples[:30], chunksize=32),  # debug remove this !!!
                 desc="convert examples to positive features"
             )
         )
@@ -71,7 +71,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
 
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
-    model_path = "./output/model_with_parameter_explain/final_model"
+    model_path = "./output/model_with_parameter_explain/checkpoint-25000"
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
@@ -109,9 +109,9 @@ if __name__ == "__main__":
             pl_id = batch[6]
             outputs = model(**inputs)
             logit = outputs['logits']
-            pred = logit.data[1]
-            for n, p, pd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred.tolist(), label.tolist()):
-                res.append((n, p, pd, lb))
+            pred = torch.softmax(logit, 1).data.tolist()
+            for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred, label.tolist()):
+                res.append((n, p, prd[1], lb))
     df = pd.DataFrame()
     df['s_id'] = [x[0] for x in res]
     df['t_id'] = [x[1] for x in res]
