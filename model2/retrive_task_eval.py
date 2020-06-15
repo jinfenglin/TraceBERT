@@ -48,8 +48,8 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
     pl_cnt = 0
     for f in tqdm(features, desc="assign ids to examples"):
         # assign id to the features
-        nl_id = "N{}".format(nl_cnt)
-        pl_id = "P{}".format(pl_cnt)
+        nl_id = "{}".format(nl_cnt)
+        pl_id = "{}".format(pl_cnt)
         f[0]['id'] = nl_id
         f[1]['id'] = pl_id
         NL_index[nl_id] = f[0]
@@ -59,7 +59,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         pl_cnt += 1
 
     for nl_cnt, nl_id in enumerate(NL_index):
-        if nl_cnt > 100:
+        if nl_cnt > 10:
             break
         for pl_id in PL_index:
             if pl_id in rel_index[nl_id]:
@@ -71,7 +71,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
 
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
-    model_path = ""
+    model_path = "./output/model_with_parameter_explain/final_model"
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    assert os.path.isfile(model_path)
+    assert os.path.isdir(model_path)
     model = torch.load(os.path.join(model_path, 't_bert.pt'))
     model.to(device)
 
