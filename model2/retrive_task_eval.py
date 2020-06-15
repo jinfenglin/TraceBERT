@@ -71,11 +71,12 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
 
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
-    model_path = "./output/model_with_parameter_explain/checkpoint-25000"
+    model_path = "./output/model_with_parameter_explain/final_model"
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
     eval_batch_size = 8
+    overwrite = False
 
     logger = logging.getLogger(__name__)
 
@@ -85,12 +86,15 @@ if __name__ == "__main__":
 
     nl_toknizer = model.ntokenizer
     pl_tokenizer = model.ctokneizer
-
-    csr = CodeSearchNetReader(data_dir)
-    examples = csr.get_examples('valid')
-    pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples, nl_toknizer, pl_tokenizer)
-    instances = pos + neg
-    dataset = TBertProcessor().features_to_data_set(instances, True)
+    if os.path.isfile(cached_file):
+        dataset = torch.load(cached_file)
+    else:
+        csr = CodeSearchNetReader(data_dir)
+        examples = csr.get_examples('valid')
+        pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples, nl_toknizer, pl_tokenizer)
+        instances = pos + neg
+        dataset = TBertProcessor().features_to_data_set(instances, True)
+        torch.save(dataset, cached_file)
 
     dataloader = DataLoader(dataset, batch_size=eval_batch_size)
     res = []
