@@ -35,7 +35,7 @@ class CodeSearchNetReader:
             summary.append(clean_line)
         return " ".join(summary)
 
-    def get_examples(self, type, num_limit=None):
+    def get_examples(self, type, num_limit=None, repos=[]):
         """
         :param type: train, valid, test
         :param num_limit:
@@ -53,6 +53,9 @@ class CodeSearchNetReader:
                             return examples
                         num_limit -= 1
                     jobj = json.loads(line)
+                    repo = jobj['repo']
+                    if len(repos) > 0 and repo not in repos:
+                        continue
                     code = jobj['code']
                     doc_str = jobj['docstring']
                     code = code.replace(doc_str, "")

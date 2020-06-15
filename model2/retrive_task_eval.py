@@ -8,6 +8,7 @@ from multiprocessing.pool import Pool
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 sys.path.append("..")
 from model2 import CodeSearchNetReader, TBertProcessor
 import pandas as pd
@@ -60,8 +61,8 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         pl_cnt += 1
 
     for nl_cnt, nl_id in enumerate(NL_index):
-        if nl_cnt > 20:
-            break
+        # if nl_cnt > 20:
+        #     break
         for pl_id in PL_index:
             if pl_id in rel_index[nl_id]:
                 pos_features.append((NL_index[nl_id], PL_index[pl_id], 1))
@@ -77,12 +78,11 @@ if __name__ == "__main__":
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
-    eval_batch_size = 16
+    eval_batch_size = 8
     overwrite = False
 
     logging.basicConfig(level='INFO')
     logger = logging.getLogger(__name__)
-
 
     assert os.path.isdir(model_path)
     model = torch.load(os.path.join(model_path, 't_bert.pt'))
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     else:
         logger.info("creating new file")
         csr = CodeSearchNetReader(data_dir)
-        examples = csr.get_examples('valid')
+        examples = csr.get_examples('valid', repos=['aleju/imgaug'])
         pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples, nl_toknizer, pl_tokenizer)
         instances = pos + neg
         dataset = TBertProcessor().features_to_data_set(instances, True)
