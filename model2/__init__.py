@@ -135,8 +135,8 @@ class TBertProcessor:
             pl_cnt = 0
             for f in tqdm(features, desc="assign ids to examples"):
                 # assign id to the features
-                nl_id = "N{}".format(nl_cnt)
-                pl_id = "P{}".format(pl_cnt)
+                nl_id = "{}".format(nl_cnt)
+                pl_id = "{}".format(pl_cnt)
                 f[0]['id'] = nl_id
                 f[1]['id'] = pl_id
                 NL_index[nl_id] = f[0]
@@ -172,18 +172,17 @@ class TBertProcessor:
     def features_to_data_set(self, features, is_training):
         # Convert to Tensors and build dataset， T-Bert will only need input_ids and will handle
         # the attention_mask etc automatically
+        all_NL_ids = torch.tensor([f[0]['id'] for f in features], dtype=torch.long)
         all_NL_input_ids = torch.tensor([f[0]['input_ids'] for f in features], dtype=torch.long)
         all_NL_attention_mask = torch.tensor([f[0]['attention_mask'] for f in features], dtype=torch.long)
 
+        all_PL_ids = torch.tensor([f[1]['id'] for f in features], dtype=torch.long)
         all_PL_input_ids = torch.tensor([f[1]['input_ids'] for f in features], dtype=torch.long)
         all_PL_attention_mask = torch.tensor([f[1]['attention_mask'] for f in features], dtype=torch.long)
 
-        if is_training:
-            all_labels = torch.tensor([f[2] for f in features], dtype=torch.long)
-            dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask,
-                                    all_labels)
-        else:
-            dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask)
+        all_labels = torch.tensor([f[2] for f in features], dtype=torch.long)
+        dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask,
+                                all_labels, all_NL_ids, all_PL_ids)
         return dataset
 
 
