@@ -6,7 +6,7 @@ from multiprocessing.pool import Pool
 
 import torch
 from torch.utils.data import DataLoader
-from tqdm.gui import tqdm
+from tqdm import tqdm
 
 from model2 import CodeSearchNetReader, TBertProcessor
 import pandas as pd
@@ -59,7 +59,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         pl_cnt += 1
 
     for nl_cnt, nl_id in enumerate(NL_index):
-        if nl_cnt > 10:
+        if nl_cnt > 100:
             break
         for pl_id in PL_index:
             if pl_id in rel_index[nl_id]:
@@ -109,9 +109,9 @@ if __name__ == "__main__":
             pl_id = batch[6]
             outputs = model(**inputs)
             logit = outputs['logits']
-            pred = logit.data[1]
-            for n, p, pd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred.tolist(), label.tolist()):
-                res.append((n, p, pd, lb))
+            pred = torch.softmax(logit, 1).data.tolist()
+            for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred, label.tolist()):
+                res.append((n, p, prd[1], lb))
     df = pd.DataFrame()
     df['s_id'] = [x[0] for x in res]
     df['t_id'] = [x[1] for x in res]

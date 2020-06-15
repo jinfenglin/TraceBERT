@@ -172,11 +172,11 @@ class TBertProcessor:
     def features_to_data_set(self, features, is_training):
         # Convert to Tensors and build dataset， T-Bert will only need input_ids and will handle
         # the attention_mask etc automatically
-        all_NL_ids = torch.tensor([f[0]['id'] for f in features], dtype=torch.long)
+        all_NL_ids = torch.tensor([int(f[0]['id']) for f in features], dtype=torch.long)
         all_NL_input_ids = torch.tensor([f[0]['input_ids'] for f in features], dtype=torch.long)
         all_NL_attention_mask = torch.tensor([f[0]['attention_mask'] for f in features], dtype=torch.long)
 
-        all_PL_ids = torch.tensor([f[1]['id'] for f in features], dtype=torch.long)
+        all_PL_ids = torch.tensor([int(f[1]['id']) for f in features], dtype=torch.long)
         all_PL_input_ids = torch.tensor([f[1]['input_ids'] for f in features], dtype=torch.long)
         all_PL_attention_mask = torch.tensor([f[1]['attention_mask'] for f in features], dtype=torch.long)
 
