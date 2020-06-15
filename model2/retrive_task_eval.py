@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from collections import defaultdict
 from functools import partial
 from multiprocessing.pool import Pool
@@ -7,7 +8,7 @@ from multiprocessing.pool import Pool
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+sys.path.append("..")
 from model2 import CodeSearchNetReader, TBertProcessor
 import pandas as pd
 
@@ -36,7 +37,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         )
         features = list(
             tqdm(
-                p.imap(annotate_, examples[:30], chunksize=32),  # debug remove this !!!
+                p.imap(annotate_, examples, chunksize=32),  # debug remove this !!!
                 desc="convert examples to positive features"
             )
         )
@@ -59,7 +60,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         pl_cnt += 1
 
     for nl_cnt, nl_id in enumerate(NL_index):
-        if nl_cnt > 100:
+        if nl_cnt > 20:
             break
         for pl_id in PL_index:
             if pl_id in rel_index[nl_id]:
@@ -72,55 +73,65 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
     model_path = "./output/model_with_parameter_explain/final_model"
+    res_file = "retrieval_res.csv"
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
-    eval_batch_size = 8
+    eval_batch_size = 16
     overwrite = False
 
+    logging.basicConfig(level='INFO')
     logger = logging.getLogger(__name__)
+
 
     assert os.path.isdir(model_path)
     model = torch.load(os.path.join(model_path, 't_bert.pt'))
     model.to(device)
+    logger.info("model loaded")
 
     nl_toknizer = model.ntokenizer
     pl_tokenizer = model.ctokneizer
-    if os.path.isfile(cached_file):
+
+    if os.path.isfile(cached_file) and not overwrite:
+        logger.info("use cached file")
         dataset = torch.load(cached_file)
     else:
+        logger.info("creating new file")
         csr = CodeSearchNetReader(data_dir)
         examples = csr.get_examples('valid')
         pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples, nl_toknizer, pl_tokenizer)
         instances = pos + neg
         dataset = TBertProcessor().features_to_data_set(instances, True)
         torch.save(dataset, cached_file)
-
-    dataloader = DataLoader(dataset, batch_size=eval_batch_size)
-    res = []
-    for batch in tqdm(dataloader, desc="Evaluating"):
-        model.eval()
-        batch = tuple(t.to(device) for t in batch)
-        with torch.no_grad():
-            inputs = {
-                "text_ids": batch[0],
-                "text_attention_mask": batch[1],
-                "code_ids": batch[2],
-                "code_attention_mask": batch[3],
-            }
-            label = batch[4]
-            nl_id = batch[5]
-            pl_id = batch[6]
-            outputs = model(**inputs)
-            logit = outputs['logits']
-            pred = torch.softmax(logit, 1).data.tolist()
-            for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred, label.tolist()):
-                res.append((n, p, prd[1], lb))
-    df = pd.DataFrame()
-    df['s_id'] = [x[0] for x in res]
-    df['t_id'] = [x[1] for x in res]
-    df['pred'] = [x[2] for x in res]
-    df['label'] = [x[3] for x in res]
+    if not os.path.isfile(res_file):
+        dataloader = DataLoader(dataset, batch_size=eval_batch_size)
+        res = []
+        for batch in tqdm(dataloader, desc="Evaluating"):
+            model.eval()
+            batch = tuple(t.to(device) for t in batch)
+            with torch.no_grad():
+                inputs = {
+                    "text_ids": batch[0],
+                    "text_attention_mask": batch[1],
+                    "code_ids": batch[2],
+                    "code_attention_mask": batch[3],
+                }
+                label = batch[4]
+                nl_id = batch[5]
+                pl_id = batch[6]
+                outputs = model(**inputs)
+                logit = outputs['logits']
+                pred = torch.softmax(logit, 1).data.tolist()
+                for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred, label.tolist()):
+                    res.append((n, p, prd[1], lb))
+        df = pd.DataFrame()
+        df['s_id'] = [x[0] for x in res]
+        df['t_id'] = [x[1] for x in res]
+        df['pred'] = [x[2] for x in res]
+        df['label'] = [x[3] for x in res]
+        df.to_csv(res_file)
+    else:
+        df = pd.read_csv(res_file)
     print("evaluating...")
     best_accuracy(df, threshold_interval=1)
     topN_RPF(df, 3)
