@@ -79,29 +79,36 @@ def convert_examples_to_dataset(examples, threads=1):
         NL_index[nl_id] = f[0]
         PL_index[pl_id] = f[1]
         rel_index[nl_id].add(pl_id)
-        pos_features.append((f[0], f[1], 1))
+        # pos_features.append((f[0], f[1], 1))
         nl_cnt += 1
         pl_cnt += 1
-
-    # create negative instances
-    pl_id_list = list(PL_index.keys())
-    for f in tqdm(features, desc="creating negative features"):
-        nl, pl = f[0], f[1]
-        nl_id, pl_id = nl['id'], pl['id']
-        pos_pl_ids = rel_index[nl_id]
-        retry = 3
-        sample_time = 1
-        while sample_time > 0:
-            neg_pl_id = pl_id_list[random.randint(0, len(pl_id_list) - 1)]
-            if neg_pl_id not in pos_pl_ids:
-                neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
-                retry = 3
-                sample_time -= 1
+    for nl_cnt, nl_id in enumerate(NL_index):
+        if nl_cnt > 10:
+            break
+        for pl_id in PL_index:
+            if pl_id in rel_index[nl_id]:
+                pos_features.append((NL_index[nl_id], PL_index[pl_id], 1))
             else:
-                retry -= 1
-                if retry == 0:
-                    break
-    return pos_features, neg_features
+                neg_features.append((NL_index[nl_id], PL_index[pl_id], 0))
+    # create negative instances
+    # pl_id_list = list(PL_index.keys())
+    # for f in tqdm(features, desc="creating negative features"):
+    #     nl, pl = f[0], f[1]
+    #     nl_id, pl_id = nl['id'], pl['id']
+    #     pos_pl_ids = rel_index[nl_id]
+    #     retry = 3
+    #     sample_time = 0
+    #     while sample_time > 0:
+    #         neg_pl_id = pl_id_list[random.randint(0, len(pl_id_list) - 1)]
+    #         if neg_pl_id not in pos_pl_ids:
+    #             neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
+    #             retry = 3
+    #             sample_time -= 1
+    #         else:
+    #             retry -= 1
+    #             if retry == 0:
+    #                 break
+    return pos_features, neg_features, NL_index, PL_index
 
 
 def best_accuracy(data_frame, threshold_interval=1):
@@ -110,7 +117,45 @@ def best_accuracy(data_frame, threshold_interval=1):
     with Pool(processes=8) as p:
         acc = list(p.imap(partial(eval, res=res), thresholds))
     print(acc)
+    print(max(acc))
     return max(acc)
+
+
+def topN_RPF(data_frame, N):
+    """
+    count a hit if the true link is in the top N. Return Recall, Precision, F1 @N
+    :param data_frame:
+    :param N:
+    :return:
+    """
+    res_dict = defaultdict(list)
+    rel_cnt_at_N = 0
+    N_total = 0
+    total_rel = 0
+    for _, r in tqdm(data_frame.iterrows(), desc="collect result into dictionary"):
+        res_tuple = (r['s_id'], r['t_id'], r['pred'], r['label'])
+        if res_tuple[3] == 1:
+            total_rel += 1
+        # ignore the 0 score to accelerating ranking
+        if res_tuple[2] > 0:
+            res_dict[r['s_id']].append(res_tuple)
+
+    for s_id in tqdm(res_dict, "evalute each NL"):
+        tuples = sorted(res_dict[s_id], key=lambda x: x[2], reverse=True)
+        for i, t in enumerate(tuples):
+            if i >= N:
+                break
+            N_total += 1
+            if t[3] == 1:
+                rel_cnt_at_N += 1
+    precision = rel_cnt_at_N / N_total
+    recall = rel_cnt_at_N / total_rel
+    print("N = {}, Precision={},Recall={}".format(N, round(precision, 3), round(recall, 3)))
+    return precision, recall
+
+
+def MAP(data_frame):
+    pass
 
 
 def eval(threshold, res):
@@ -150,29 +195,34 @@ def debug_instnace(instances):
 
 if __name__ == "__main__":
     vsm_res_file = "vsm_res.csv"
-    if os.path.isfile(vsm_res_file):
+    override = False
+    if not os.path.isfile(vsm_res_file) or override:
         data_dir = "../data/code_search_net/python"
         csr = CodeSearchNetReader(data_dir)
         examples = csr.get_examples('valid')
-        pos, neg = convert_examples_to_dataset(examples)
+        pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples)
         instances = pos + neg
         debug_instnace(instances)
-        doc_tokens = [x[1]['tokens'] for x in pos]
+        doc_tokens = [x['tokens'] for x in PL_index.values()]
         # doc_tokens.extend(x[0]['tokens'] for x in instances)
         vsm = VSM()
         vsm.build_model(doc_tokens)
 
         res = []
         for i, ins in tqdm(enumerate(instances)):
+            s_id = ins[0]
+            t_id = ins[1]
             label = ins[2]
             pred = vsm.get_link_scores(ins[0], ins[1])
-            res.append((pred, label))
+            res.append((s_id, t_id, pred, label))
         df = pd.DataFrame()
-        df['pred'] = [x[0] for x in res]
-        df['label'] = [x[1] for x in res]
+        df['s_id'] = [x[0]['id'] for x in res]
+        df['t_id'] = [x[1]['id'] for x in res]
+        df['pred'] = [x[2] for x in res]
+        df['label'] = [x[3] for x in res]
         df.to_csv(vsm_res_file)
     else:
         df = pd.read_csv(vsm_res_file)
     print("evaluating...")
-    ba = best_accuracy(df, threshold_interval=1)
-    print(ba)
+    # best_accuracy(df, threshold_interval=1)
+    topN_RPF(df, 5)
