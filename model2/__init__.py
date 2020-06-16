@@ -35,7 +35,7 @@ class CodeSearchNetReader:
             summary.append(clean_line)
         return " ".join(summary)
 
-    def get_examples(self, type, num_limit=None, repos=[]):
+    def get_examples(self, type, num_limit=None, repos=[], summary_only=True):
         """
         :param type: train, valid, test
         :param num_limit:
@@ -59,7 +59,8 @@ class CodeSearchNetReader:
                     code = jobj['code']
                     doc_str = jobj['docstring']
                     code = code.replace(doc_str, "")
-                    # doc_str = self.get_summary_from_docstring(doc_str)
+                    if summary_only:
+                        doc_str = self.get_summary_from_docstring(doc_str)
                     if len(doc_str.split()) < 3:
                         continue
                     example = {
@@ -96,11 +97,13 @@ class TBertProcessor:
                                            return_token_type_ids=False)
         nl = {
             "input_ids": nl_data['input_ids'],
-            "attention_mask": nl_data['attention_mask']
+            "attention_mask": nl_data['attention_mask'],
+            'tokens': self.clean(example['NL'])
         }
         pl = {
             "input_ids": pl_data['input_ids'],
-            "attention_mask": pl_data['attention_mask']
+            "attention_mask": pl_data['attention_mask'],
+            'tokens': example['PL'],
         }
         return (nl, pl)
 

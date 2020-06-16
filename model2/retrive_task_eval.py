@@ -70,16 +70,31 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
                 neg_features.append((NL_index[nl_id], PL_index[pl_id], 0))
     return pos_features, neg_features, NL_index, PL_index
 
+def debug_input(NL_index, PL_index):
+    def write_dict(index_dict, out_path):
+        df = pd.DataFrame()
+        ids = []
+        content = []
+        for id in index_dict.keys():
+            text = index_dict[id]['tokens']
+            content.append(text)
+            ids.append(id)
+        df['id'] = ids
+        df['content'] = content
+        df.to_csv(out_path, index= False)
+    write_dict(NL_index, "NL_index.csv")
+    write_dict(PL_index, "PL_index.csv")
 
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
     model_path = "./output/model_with_parameter_explain/final_model"
-    res_file = "retrieval_res.csv"
+    res_file = "./retrieval_res.csv"
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
     eval_batch_size = 8
-    overwrite = False
+    overwrite = True
+    summary_only = True # use only the summary of the docstring
 
     logging.basicConfig(level='INFO')
     logger = logging.getLogger(__name__)
@@ -98,12 +113,14 @@ if __name__ == "__main__":
     else:
         logger.info("creating new file")
         csr = CodeSearchNetReader(data_dir)
-        examples = csr.get_examples('valid', repos=['aleju/imgaug'])
+        examples = csr.get_examples('valid', repos=['aleju/imgaug'], summary_only= True)
         pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples, nl_toknizer, pl_tokenizer)
+        debug_input(NL_index, PL_index)
         instances = pos + neg
         dataset = TBertProcessor().features_to_data_set(instances, True)
         torch.save(dataset, cached_file)
-    if not os.path.isfile(res_file):
+
+    if not os.path.isfile(res_file) or overwrite:
         dataloader = DataLoader(dataset, batch_size=eval_batch_size)
         res = []
         for batch in tqdm(dataloader, desc="Evaluating"):

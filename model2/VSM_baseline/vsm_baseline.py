@@ -72,8 +72,8 @@ def convert_examples_to_dataset(examples, threads=1):
     pl_cnt = 0
     for f in tqdm(features, desc="assign ids to examples"):
         # assign id to the features
-        nl_id = "N{}".format(nl_cnt)
-        pl_id = "P{}".format(pl_cnt)
+        nl_id = "{}".format(nl_cnt)
+        pl_id = "{}".format(pl_cnt)
         f[0]['id'] = nl_id
         f[1]['id'] = pl_id
         NL_index[nl_id] = f[0]
@@ -114,7 +114,7 @@ def convert_examples_to_dataset(examples, threads=1):
 
 
 def best_accuracy(data_frame, threshold_interval=1):
-    df = DataFrame(columns=['acc', 'precision', 'recall', 'F1', 'threshold'])
+    df = DataFrame(columns=['acc', 'precision', 'recall', 'F1', 'tp', 'fp', 'tn', 'fn','threshold'])
     res = [x for x in zip(data_frame['pred'], data_frame['label'])]
     thresholds = [x for x in range(0, 100, threshold_interval)]
     with Pool(processes=8) as p:
@@ -122,15 +122,21 @@ def best_accuracy(data_frame, threshold_interval=1):
 
     max_f1, out_p, out_re, out_thre = 0, 0, 0, 0
     for r in res:
-        p = r[1]
-        re = r[2]
-        f = r[3]
-        thre = r[4]
-        df.append({
+        p = round(r[1],3)
+        re = round(r[2],3)
+        f = round(r[3],3)
+        thre = r[4]/100
+        tp, fp, tn, fn = r[5], r[6], r[7], r[8]
+
+        df = df.append({
             'acc': r[0],
             'precision': p,
             'recall': re,
             'F1': f,
+            'tp': tp,
+            'fp': fp,
+            'tn': tn,
+            'fn': fn,
             'threshold': thre
         }, ignore_index=True)
         if f > max_f1:
@@ -204,7 +210,7 @@ def eval(threshold, res):
     precision = tp / (tp + fp) if tp + fp > 0 else 0
     recall = tp / (tp + fn) if tp + fn > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
-    return (accuracy, precision, recall, f1, threshold)
+    return (accuracy, precision, recall, f1, threshold, tp, fp, tn, fn)
 
 
 def debug_instnace(instances):
@@ -236,7 +242,7 @@ if __name__ == "__main__":
     if not os.path.isfile(vsm_res_file) or override:
         data_dir = "../data/code_search_net/python"
         csr = CodeSearchNetReader(data_dir)
-        examples = csr.get_examples('valid')
+        examples = csr.get_examples('valid', repos=['aleju/imgaug'])
         pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples)
         instances = pos + neg
         debug_instnace(instances)
