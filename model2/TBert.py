@@ -51,21 +51,6 @@ class AvgPooler(nn.Module):
         # return self.activation(self.dense(pool_hidden))
         return self.pooler(hidden_states).view(-1, self.hidden_size)
 
-    # remove padding from average pooling does not improve result
-    # def forward(self, hidden_states, attention_mask):
-    #     pool_hidden = self.custom_avg_pooler(hidden_states, attention_mask)
-    #     return self.activation(self.dense(pool_hidden))
-    #
-    # def custom_avg_pooler(self, hidden_states, attention_mask):
-    #     pooled_tensors = []
-    #     for item, mask in zip(hidden_states, attention_mask):  # shape of (512,728)
-    #         mask = (mask > 0)
-    #         # token features after masking
-    #         masked_hidden = torch.masked_select(item, mask.view(-1, 1)).view(-1,self.hidden_size)
-    #         pooled_hidden = torch.mean(masked_hidden, dim=0)
-    #         pooled_tensors.append(pooled_hidden)
-    #     return torch.stack(pooled_tensors)
-
 
 class RelationClassifyHeader2(nn.Module):
     """
@@ -78,16 +63,20 @@ class RelationClassifyHeader2(nn.Module):
         self.hidden_size = config.hidden_size
         self.code_pooler = AvgPooler(config)
         self.text_pooler = AvgPooler(config)
-        self.dense_layer = nn.Linear(config.hidden_size * 2, config.hidden_size)
-        self.relation_layer = nn.Linear(config.hidden_size, 2)
+        self.output_layer = nn.Linear(config.hidden_size * 3, 2)
+        # self.dense_layer = nn.Linear(config.hidden_size * 3, config.hidden_size)
+        # self.relation_layer = nn.Linear(config.hidden_size, 2)
 
     def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
         pool_code_hidden = self.code_pooler(code_hidden, code_attention_mask)
         pool_text_hidden = self.text_pooler(text_hidden, text_attention_mask)
+        diff_hidden = torch.abs(pool_code_hidden - pool_text_hidden)
         concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
-        _hidden = F.relu(self.dense_layer(concated_hidden))
-        seq_relationship_score = self.relation_layer(_hidden)
-        return seq_relationship_score
+        concated_hidden = torch.cat((concated_hidden, diff_hidden), 1)
+        # _hidden = F.relu(self.dense_layer(concated_hidden))
+        # seq_relationship_score = self.relation_layer(_hidden)
+        # return seq_relationship_score
+        return self.output_layer(concated_hidden)
 
 
 class RelationClassifyHeader_no_transformer(nn.Module):

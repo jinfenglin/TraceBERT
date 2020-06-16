@@ -28,6 +28,7 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
+
 def save_examples(exampls, output_file):
     nl = []
     pl = []
@@ -38,6 +39,7 @@ def save_examples(exampls, output_file):
     df['NL'] = nl
     df['PL'] = pl
     df.to_csv(output_file)
+
 
 def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
                             thread_num=None, num_limit=None):
@@ -67,9 +69,9 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     else:
         logger.info("Creating features from dataset file at %s", data_dir)
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(type=data_type, num_limit=num_limit)
+        examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
         logger.info("Creating features for {} dataset with num of {}".format(data_type, len(examples)))
-        save_examples(examples, example_debug_file) # save examples for debugging purpose
+        save_examples(examples, example_debug_file)  # save examples for debugging purpose
         dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
                                                                is_training=is_training, threads=thread_num)
         logger.info("Saving features into cached file {}".format(cached_file))
@@ -360,6 +362,8 @@ def main():
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
+    parser.add_argument("--resample_rate", default=1, type=int, help="Oversample rate for positive examples, "
+                                                                     "negative examples will match the number")
     args = parser.parse_args()
 
     # Setup CUDA, GPU & distributed training

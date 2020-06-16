@@ -8,6 +8,7 @@ from functools import partial
 from multiprocessing.pool import Pool
 from os import cpu_count
 from pathlib import Path
+from typing import List, Set
 
 import torch
 from torch.utils.data import TensorDataset
@@ -42,6 +43,7 @@ class CodeSearchNetReader:
         :return:
         """
         examples = []
+        doc_dup_check = defaultdict(List)
         json_dir = os.path.join(self.data_dir, "final/jsonl")
         src_files = Path(os.path.join(json_dir, type)).glob('*.gz')
         for zfile in src_files:
@@ -61,13 +63,19 @@ class CodeSearchNetReader:
                     code = code.replace(doc_str, "")
                     if summary_only:
                         doc_str = self.get_summary_from_docstring(doc_str)
-                    if len(doc_str.split()) < 3:
+                    if len(doc_str.split()) < 10:  # abandon cases where doc_str is shorter than 10 tokens
                         continue
                     example = {
                         "NL": doc_str,
                         "PL": code
                     }
-                    examples.append(example)
+                    doc_dup_check[doc_str].append(example)
+                    # examples.append(example)
+
+        for doc in doc_dup_check:
+            if len(doc_dup_check[doc]) > 1:
+                continue
+            examples.extend(doc_dup_check[doc])
         return examples
 
 
@@ -107,13 +115,22 @@ class TBertProcessor:
         }
         return (nl, pl)
 
-    def convert_examples_to_dataset(self, examples, NL_tokenizer, PL_tokenizer, is_training, threads=1):
-        """
+    def sample_negative_examples_ids(self, sample_pool: List, pos_pl_ids: Set, num):
+        for id in pos_pl_ids:
+            sample_pool.remove(id)
+        selected = random.sample(sample_pool, num)
+        return selected
 
+    def convert_examples_to_dataset(self, examples, NL_tokenizer, PL_tokenizer, is_training, resample_rate=1,
+                                    threads=1):
+        """
         :param examples:
         :param NL_tokenizer:
         :param PL_tokenizer:
         :param is_training: if it is training/evaluation then do not add label as it not exist.
+        :param resample_rate: oversample positive examples and undersample negative examples to create a balanced dataset.
+        When resample_rate is 1, we use all positive examples and create equal number of negative examples. When resmaple
+        rate larger than 1 (e.g. 2) we copy positive examples for 2 time and create equal number of negative examples.
         :param threads:
         :return:
         """
@@ -129,50 +146,37 @@ class TBertProcessor:
             )
             features = list(
                 tqdm(
-                    p.imap(annotate_, examples, chunksize=32),
+                    p.imap(annotate_, examples[:10], chunksize=32),
                     desc="convert examples to positive features"
                 )
             )
-        if is_training:  # create negative instances for training purpose
-            rel_index = defaultdict(set)
-            NL_index = dict()  # find instance by id
-            PL_index = dict()
-            nl_cnt = 0
-            pl_cnt = 0
-            for f in tqdm(features, desc="assign ids to examples"):
-                # assign id to the features
-                nl_id = "{}".format(nl_cnt)
-                pl_id = "{}".format(pl_cnt)
-                f[0]['id'] = nl_id
-                f[1]['id'] = pl_id
-                NL_index[nl_id] = f[0]
-                PL_index[pl_id] = f[1]
-                rel_index[nl_id].add(pl_id)
-                pos_features.append((f[0], f[1], 1))
-                nl_cnt += 1
-                pl_cnt += 1
 
-            # create negative instances
-            pl_id_list = list(PL_index.keys())
-            for f in tqdm(features, desc="creating negative features"):
-                nl, pl = f[0], f[1]
-                nl_id, pl_id = nl['id'], pl['id']
-                pos_pl_ids = rel_index[nl_id]
-                retry = 3
-                sample_time = 1
-                while sample_time > 0:
-                    neg_pl_id = pl_id_list[random.randint(0, len(pl_id_list) - 1)]
-                    if neg_pl_id not in pos_pl_ids:
-                        neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
-                        retry = 3
-                        sample_time -= 1
-                    else:
-                        retry -= 1
-                        if retry == 0:
-                            break
-        else:
-            pos_features = features
-        dataset = self.features_to_data_set(pos_features + neg_features, is_training)
+        # build index for nl and pl features
+        rel_index = defaultdict(set)
+        NL_index = dict()  # find instance by id
+        PL_index = dict()
+        nl_cnt = 0
+        pl_cnt = 0
+        for f in tqdm(features, desc="assign ids to examples"):
+            nl_id = "{}".format(nl_cnt)
+            pl_id = "{}".format(pl_cnt)
+            f[0]['id'] = nl_id
+            f[1]['id'] = pl_id
+            NL_index[nl_id] = f[0]
+            PL_index[pl_id] = f[1]
+            rel_index[nl_id].add(pl_id)
+            nl_cnt += 1
+            pl_cnt += 1
+
+        for f in tqdm(features, desc="creating dataset"):
+            nl, pl = f[0], f[1]
+            nl_id, pl_id = nl['id'], pl['id']
+            pos_pl_ids = rel_index[nl_id]
+            selected_ids = self.sample_negative_examples_ids(list(PL_index.keys()), pos_pl_ids, resample_rate)
+            pos_features.append((NL_index[nl_id], PL_index[pl_id], 1))
+            for sel_id in selected_ids:
+                neg_features.append((NL_index[nl_id], PL_index[sel_id], 0))
+        dataset = self.features_to_data_set(pos_features * resample_rate + neg_features, is_training)
         return dataset
 
     def features_to_data_set(self, features, is_training):

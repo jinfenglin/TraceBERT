@@ -61,14 +61,13 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         pl_cnt += 1
 
     for nl_cnt, nl_id in enumerate(NL_index):
-        # if nl_cnt > 20:
-        #     break
         for pl_id in PL_index:
             if pl_id in rel_index[nl_id]:
                 pos_features.append((NL_index[nl_id], PL_index[pl_id], 1))
             else:
                 neg_features.append((NL_index[nl_id], PL_index[pl_id], 0))
     return pos_features, neg_features, NL_index, PL_index
+
 
 def debug_input(NL_index, PL_index):
     def write_dict(index_dict, out_path):
@@ -81,9 +80,11 @@ def debug_input(NL_index, PL_index):
             ids.append(id)
         df['id'] = ids
         df['content'] = content
-        df.to_csv(out_path, index= False)
+        df.to_csv(out_path, index=False)
+
     write_dict(NL_index, "NL_index.csv")
     write_dict(PL_index, "PL_index.csv")
+
 
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
     eval_batch_size = 8
     overwrite = True
-    summary_only = True # use only the summary of the docstring
+    summary_only = True  # use only the summary of the docstring
 
     logging.basicConfig(level='INFO')
     logger = logging.getLogger(__name__)
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     else:
         logger.info("creating new file")
         csr = CodeSearchNetReader(data_dir)
-        examples = csr.get_examples('valid', repos=['aleju/imgaug'], summary_only= True)
+        examples = csr.get_examples('valid', repos=['aleju/imgaug'], summary_only=True)
         pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples, nl_toknizer, pl_tokenizer)
         debug_input(NL_index, PL_index)
         instances = pos + neg

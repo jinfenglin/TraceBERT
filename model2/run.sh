@@ -10,6 +10,7 @@ python exec_TBert_experiment.py \
 --save_steps 1000 \
 --gradient_accumulation_steps 16 \
 --num_train_epochs 5 \
---learning_rate 4e-5 \
+--learning_rate 2e-5 \
 --valid_num 100 \
---valid_step 50
+--valid_step 50 \
+--resample_rate 1
