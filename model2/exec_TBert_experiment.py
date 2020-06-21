@@ -42,7 +42,7 @@ def save_examples(exampls, output_file):
 
 
 def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
-                            thread_num=None, num_limit=None):
+                            thread_num=None, num_limit=None, resample_rate=1):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
@@ -70,10 +70,13 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
         logger.info("Creating features from dataset file at %s", data_dir)
         csn_reader = CodeSearchNetReader(data_dir)
         examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
-        logger.info("Creating features for {} dataset with num of {}".format(data_type, len(examples)))
+        logger.info(
+            "Creating features for {} dataset with num of {} and resample_rate {}".format(data_type, len(examples),
+                                                                                          resample_rate))
         save_examples(examples, example_debug_file)  # save examples for debugging purpose
         dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
-                                                               is_training=is_training, threads=thread_num)
+                                                               is_training=is_training, threads=thread_num,
+                                                               resample_rate=resample_rate)
         logger.info("Saving features into cached file {}".format(cached_file))
         torch.save(dataset, cached_file)
     return dataset
@@ -427,28 +430,11 @@ def main():
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=None, overwrite=args.overwrite)
+                                                is_training=True, num_limit=None, overwrite=args.overwrite,
+                                                resample_rate=args.resample_rate)
         global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
-    # Evaluation - we can ask to evaluate all the checkpoints (sub-directories) in a directory
-    results = {}
-    if args.do_eval and args.local_rank in [-1, 0]:
-        if args.do_train:
-            logger.info("Loading checkpoints saved during training for evaluation")
-            checkpoints = []
-            checkpoints.append(os.path.join(args.output_dir, "final_model"))
-        else:
-            logger.info("Loading checkpoint %s for evaluation", args.model_path)
-            checkpoints = [args.model_path]
 
-        logger.info("Evaluate the following checkpoints: %s", checkpoints)
-
-        for checkpoint in checkpoints:
-            result = evaluate_checkpoint(checkpoint, valid_dataset, args, None)
-            results[checkpoint] = result
-
-    logger.info("Results: {}".format(results))
-    return results
 
 
 if __name__ == "__main__":
