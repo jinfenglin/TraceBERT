@@ -104,7 +104,8 @@ class TBert(PreTrainedModel):
         super().__init__(config)
         cbert_model = "huggingface/CodeBERTa-small-v1"
         # nbert_model = "bert-base-uncased"
-        nbert_model = "roberta-base"
+        # nbert_model = "roberta-base"
+        nbert_model = "huggingface/CodeBERTa-small-v1"
 
         self.ctokneizer = AutoTokenizer.from_pretrained(cbert_model)
         self.cbert = AutoModel.from_pretrained(cbert_model)

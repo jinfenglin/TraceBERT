@@ -114,7 +114,7 @@ def convert_examples_to_dataset(examples, threads=1):
 
 
 def best_accuracy(data_frame, threshold_interval=1):
-    df = DataFrame(columns=['acc', 'precision', 'recall', 'F1', 'tp', 'fp', 'tn', 'fn','threshold'])
+    df = DataFrame(columns=['acc', 'precision', 'recall', 'F1', 'tp', 'fp', 'tn', 'fn', 'threshold'])
     res = [x for x in zip(data_frame['pred'], data_frame['label'])]
     thresholds = [x for x in range(0, 100, threshold_interval)]
     with Pool(processes=8) as p:
@@ -122,11 +122,11 @@ def best_accuracy(data_frame, threshold_interval=1):
 
     max_f1, out_p, out_re, out_thre = 0, 0, 0, 0
     for r in res:
-        p = round(r[1],3)
-        re = round(r[2],3)
-        f = round(r[3],3)
-        thre = r[4]/100
-        tp, fp, tn, fn = r[5], r[6], r[7], r[8]
+        p = round(r[1], 3)
+        re = round(r[2], 3)
+        f = round(r[3], 3)
+        thre = round(r[4] / 100, 2)
+        tp, fp, tn, fn = int(r[5]), int(r[6]), int(r[7]), int(r[8])
 
         df = df.append({
             'acc': r[0],

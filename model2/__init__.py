@@ -43,7 +43,7 @@ class CodeSearchNetReader:
         :return:
         """
         examples = []
-        doc_dup_check = defaultdict(List)
+        doc_dup_check = defaultdict(list)
         json_dir = os.path.join(self.data_dir, "final/jsonl")
         src_files = Path(os.path.join(json_dir, type)).glob('*.gz')
         for zfile in src_files:
@@ -146,7 +146,7 @@ class TBertProcessor:
             )
             features = list(
                 tqdm(
-                    p.imap(annotate_, examples[:10], chunksize=32),
+                    p.imap(annotate_, examples, chunksize=32),
                     desc="convert examples to positive features"
                 )
             )

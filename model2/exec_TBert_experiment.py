@@ -246,7 +246,7 @@ def train(args, train_dataset, valid_dataset, model):
     step_bar.close()
 
     logger.info("Save the trained model...")
-    model_output = os.path.join(args.output_dir, "final_model")
+    model_output = os.path.join(args.output_dir, "resample_20_epoch_5")
     if not os.path.isdir(model_output):
         os.mkdir(model_output)
     save_check_point(model, model_output, args, optimizer, scheduler)
@@ -436,7 +436,7 @@ def main():
         if args.do_train:
             logger.info("Loading checkpoints saved during training for evaluation")
             checkpoints = []
-            checkpoints.append(os.path.join(args.output_dir, "final_model"))
+            checkpoints.append(os.path.join(args.output_dir, "resample_20_epoch_5"))
         else:
             logger.info("Loading checkpoint %s for evaluation", args.model_path)
             checkpoints = [args.model_path]

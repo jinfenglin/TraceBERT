@@ -38,7 +38,7 @@ def convert_examples_to_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1)
         )
         features = list(
             tqdm(
-                p.imap(annotate_, examples, chunksize=32),  # debug remove this !!!
+                p.imap(annotate_, examples, chunksize=32),
                 desc="convert examples to positive features"
             )
         )
@@ -88,7 +88,7 @@ def debug_input(NL_index, PL_index):
 
 if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
-    model_path = "./output/model_with_parameter_explain/final_model"
+    model_path = "output/resample_20_epoch_5"
     res_file = "./retrieval_res.csv"
     device = 'cuda'
     cache_dir = os.path.join(data_dir, "cache")
