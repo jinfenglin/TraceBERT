@@ -145,7 +145,8 @@ def best_accuracy(data_frame, threshold_interval=1):
             out_re = re
             out_thre = thre
     df.to_csv("f_score_eval.csv")
-    print("F1 = {}, precision={}, recall={}, thresold = {}".format(max_f1, out_p, out_re, out_thre))
+    # print("F1 = {}, precision={}, recall={}, thresold = {}".format(max_f1, out_p, out_re, out_thre))
+    return max_f1, out_p, out_re, out_thre
 
 
 def topN_RPF(data_frame, N):
@@ -177,7 +178,8 @@ def topN_RPF(data_frame, N):
                 rel_cnt_at_N += 1
     success_rate = rel_cnt_at_N / len(res_dict)
     recall = rel_cnt_at_N / total_rel
-    print("N = {}, SuccessRate={},Recall={}".format(N, round(success_rate, 3), round(recall, 3)))
+    # print("N = {}, SuccessRate={},Recall={}".format(N, round(success_rate, 3), round(recall, 3)))
+    return success_rate
 
 
 def MAP(data_frame):
