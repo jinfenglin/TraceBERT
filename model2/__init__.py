@@ -51,8 +51,7 @@ class CodeSearchNetReader:
                 for line in fin.readlines():
                     if num_limit is not None:
                         if num_limit <= 0:
-                            return examples
-                        num_limit -= 1
+                            break
                     jobj = json.loads(line)
                     repo = jobj['repo']
                     if len(repos) > 0 and repo not in repos:
@@ -64,6 +63,8 @@ class CodeSearchNetReader:
                         doc_str = self.get_summary_from_docstring(doc_str)
                     if len(doc_str.split()) < 10:  # abandon cases where doc_str is shorter than 10 tokens
                         continue
+                    if num_limit:
+                        num_limit -= 1
                     example = {
                         "NL": doc_str,
                         "PL": code
@@ -104,12 +105,12 @@ class TBertProcessor:
                                            return_token_type_ids=False)
         nl = {
             "input_ids": nl_data['input_ids'],
-            "attention_mask": nl_data['attention_mask'],
+            # "attention_mask": nl_data['attention_mask'],
             'tokens': self.clean(example['NL'])
         }
         pl = {
             "input_ids": pl_data['input_ids'],
-            "attention_mask": pl_data['attention_mask'],
+            # "attention_mask": pl_data['attention_mask'],
             'tokens': example['PL'],
         }
         return (nl, pl)
@@ -183,15 +184,16 @@ class TBertProcessor:
         # the attention_mask etc automatically
         all_NL_ids = torch.tensor([int(f[0]['id']) for f in features], dtype=torch.long)
         all_NL_input_ids = torch.tensor([f[0]['input_ids'] for f in features], dtype=torch.long)
-        all_NL_attention_mask = torch.tensor([f[0]['attention_mask'] for f in features], dtype=torch.long)
+        # all_NL_attention_mask = torch.tensor([f[0]['attention_mask'] for f in features], dtype=torch.long)
 
         all_PL_ids = torch.tensor([int(f[1]['id']) for f in features], dtype=torch.long)
         all_PL_input_ids = torch.tensor([f[1]['input_ids'] for f in features], dtype=torch.long)
-        all_PL_attention_mask = torch.tensor([f[1]['attention_mask'] for f in features], dtype=torch.long)
+        # all_PL_attention_mask = torch.tensor([f[1]['attention_mask'] for f in features], dtype=torch.long)
 
         all_labels = torch.tensor([f[2] for f in features], dtype=torch.long)
-        dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask,
-                                all_labels, all_NL_ids, all_PL_ids)
+        # dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask,
+        #                         all_labels, all_NL_ids, all_PL_ids)
+        dataset = TensorDataset(all_NL_input_ids, all_PL_input_ids, all_labels, all_NL_ids, all_PL_ids)
         return dataset
 
 

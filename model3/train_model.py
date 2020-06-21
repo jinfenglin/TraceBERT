@@ -335,18 +335,15 @@ def convert_example_to_triplet_dataset(examples, NL_tokenizer, PL_tokenizer, thr
 def convert_triplets_to_dataset(features):
     all_NL_ids = torch.tensor([int(f[0]['id']) for f in features], dtype=torch.long)
     all_NL_input_ids = torch.tensor([f[0]['input_ids'] for f in features], dtype=torch.long)
-    all_NL_attention_mask = torch.tensor([f[0]['attention_mask'] for f in features], dtype=torch.long)
 
     all_pos_PL_ids = torch.tensor([int(f[1]['id']) for f in features], dtype=torch.long)
     all_pos_PL_input_ids = torch.tensor([f[1]['input_ids'] for f in features], dtype=torch.long)
-    all_pos_PL_attention_mask = torch.tensor([f[1]['attention_mask'] for f in features], dtype=torch.long)
 
     all_neg_PL_ids = torch.tensor([int(f[2]['id']) for f in features], dtype=torch.long)
     all_neg_PL_input_ids = torch.tensor([f[2]['input_ids'] for f in features], dtype=torch.long)
-    all_neg_PL_attention_mask = torch.tensor([f[2]['attention_mask'] for f in features], dtype=torch.long)
-    dataset = TensorDataset(all_NL_ids, all_NL_input_ids, all_NL_attention_mask,
-                            all_pos_PL_ids, all_pos_PL_input_ids, all_pos_PL_attention_mask,
-                            all_neg_PL_ids, all_neg_PL_input_ids, all_neg_PL_attention_mask)
+    dataset = TensorDataset(all_NL_ids, all_NL_input_ids,
+                            all_pos_PL_ids, all_pos_PL_input_ids,
+                            all_neg_PL_ids, all_neg_PL_input_ids)
     return dataset
 
 

@@ -4,7 +4,6 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from transformers import PreTrainedModel, BertConfig, AutoTokenizer, AutoModel
-import torch.nn.functional as F
 from transformers.modeling_bert import BertPooler
 
 
@@ -46,7 +45,7 @@ class AvgPooler(nn.Module):
         # self.activation = nn.Tanh()
         # self.activation = nn.ReLU()
 
-    def forward(self, hidden_states, attention_mask):
+    def forward(self, hidden_states):
         # pool_hidden = self.pooler(hidden_states).view(-1, self.hidden_size)
         # return self.activation(self.dense(pool_hidden))
         return self.pooler(hidden_states).view(-1, self.hidden_size)
@@ -67,9 +66,9 @@ class RelationClassifyHeader2(nn.Module):
         # self.dense_layer = nn.Linear(config.hidden_size * 3, config.hidden_size)
         # self.relation_layer = nn.Linear(config.hidden_size, 2)
 
-    def forward(self, code_hidden, text_hidden, code_attention_mask, text_attention_mask):
-        pool_code_hidden = self.code_pooler(code_hidden, code_attention_mask)
-        pool_text_hidden = self.text_pooler(text_hidden, text_attention_mask)
+    def forward(self, code_hidden, text_hidden):
+        pool_code_hidden = self.code_pooler(code_hidden)
+        pool_text_hidden = self.text_pooler(text_hidden)
         diff_hidden = torch.abs(pool_code_hidden - pool_text_hidden)
         concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
         concated_hidden = torch.cat((concated_hidden, diff_hidden), 1)
@@ -118,9 +117,9 @@ class TBert(PreTrainedModel):
     def forward(
             self,
             code_ids=None,
-            code_attention_mask=None,
+            # code_attention_mask=None,
             text_ids=None,
-            text_attention_mask=None,
+            # text_attention_mask=None,
             relation_label=None):
         n_outputs = self.nbert(text_ids)
         c_outputs = self.cbert(code_ids)
@@ -128,12 +127,12 @@ class TBert(PreTrainedModel):
         c_hidden = c_outputs[0]
         n_hidden = n_outputs[0]
 
-        if code_attention_mask is None:
-            code_attention_mask = torch.ones(code_ids.size(), device=code_ids.device)
-        if text_attention_mask is None:
-            text_attention_mask = torch.ones(text_ids.size(), device=text_ids.device)
+        # if code_attention_mask is None:
+        #     code_attention_mask = torch.ones(code_ids.size(), device=code_ids.device)
+        # if text_attention_mask is None:
+        #     text_attention_mask = torch.ones(text_ids.size(), device=text_ids.device)
 
-        logits = self.cls(c_hidden, n_hidden, code_attention_mask, text_attention_mask)
+        logits = self.cls(c_hidden, n_hidden)
         output_dict = {"logits": logits}
         if relation_label is not None:
             loss_fct = CrossEntropyLoss()

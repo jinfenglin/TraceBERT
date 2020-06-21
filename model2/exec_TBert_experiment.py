@@ -69,7 +69,7 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     else:
         logger.info("Creating features from dataset file at %s", data_dir)
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
+        examples = csn_reader.get_examples(type=data_type, num_limit=None, summary_only=True)
         logger.info(
             "Creating features for {} dataset with num of {} and resample_rate {}".format(data_type, len(examples),
                                                                                           resample_rate))
@@ -182,16 +182,14 @@ def train(args, train_dataset, valid_dataset, model):
             batch = tuple(t.to(args.device) for t in batch)
             inputs = {
                 "text_ids": batch[0],
-                "text_attention_mask": batch[1],
-                "code_ids": batch[2],
-                "code_attention_mask": batch[3],
-                "relation_label": batch[4]
+                "code_ids": batch[1],
+                "relation_label": batch[2]
             }
             outputs = model(**inputs)
             loss = outputs['loss']
             logit = outputs['logits']
             y_pred = logit.data.max(1)[1]
-            tr_ac += y_pred.eq(batch[4]).long().sum().item()
+            tr_ac += y_pred.eq(batch[2]).long().sum().item()
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -430,7 +428,7 @@ def main():
         # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
         train_dataset = load_and_cache_examples(args.data_dir, "train",
                                                 model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=None, overwrite=args.overwrite,
+                                                is_training=True, num_limit=100, overwrite=args.overwrite,
                                                 resample_rate=args.resample_rate)
         global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
