@@ -2,6 +2,7 @@ import argparse
 import logging
 import multiprocessing
 import os
+import sys
 from collections import defaultdict
 from functools import partial
 from multiprocessing.pool import Pool
@@ -14,10 +15,10 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm, trange
 from transformers import BertConfig, get_linear_schedule_with_warmup
 
+sys.path.append("..")
 from model2 import CodeSearchNetReader, TBertProcessor
 from model2.VSM_baseline.vsm_baseline import best_accuracy, topN_RPF
 from model2.exec_TBert_experiment import save_check_point
-from model2.retrive_task_eval import convert_examples_to_dataset
 from model3.TBert_2 import TBert2
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,8 @@ def main():
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()
     else:
-        device = torch.device("cuda", 1)
+        torch.cuda.set_device(0)
+        device = torch.device("cuda", 0)
         args.n_gpu = 1
     args.device = device
     logging.basicConfig(
@@ -77,10 +79,10 @@ def main():
 
     valid_dataset = load_dataset(args.data_dir, "valid",
                                  model.ntokenizer, model.ctokneizer,
-                                 num_limit=1000, overwrite=args.overwrite)
+                                 num_limit=args.valid_num, overwrite=args.overwrite)
     train_dataset = load_dataset(args.data_dir, "train",
                                  model.ntokenizer, model.ctokneizer,
-                                 num_limit=1000, overwrite=args.overwrite, resample_rate=args.resample_rate)
+                                 num_limit=None, overwrite=args.overwrite, resample_rate=args.resample_rate)
 
     global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
     logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
