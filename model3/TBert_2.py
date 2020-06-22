@@ -21,6 +21,7 @@ class CosineTrainHeader(nn.Module):
         self.hidden_size = config.hidden_size
         self.code_pooler = AvgPooler(config)
         self.text_pooler = AvgPooler(config)
+        self.margin = 0.5
 
     def similarity(self, vec1, vec2):
         return F.cosine_similarity(vec1, vec2)

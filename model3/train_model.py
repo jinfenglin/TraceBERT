@@ -55,6 +55,8 @@ def main():
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
+    parser.add_argument("--resample_rate", default=1, type=int, help="Oversample rate for positive examples, "
+                                                                     "negative examples will match the number")
     args = parser.parse_args()
 
     if args.no_cuda:
@@ -67,7 +69,7 @@ def main():
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
+        level=logging.INFO,
     )
     model = TBert2(BertConfig())
     model.to(args.device)
@@ -75,10 +77,10 @@ def main():
 
     valid_dataset = load_dataset(args.data_dir, "valid",
                                  model.ntokenizer, model.ctokneizer,
-                                 num_limit=None, overwrite=args.overwrite)
+                                 num_limit=1000, overwrite=args.overwrite)
     train_dataset = load_dataset(args.data_dir, "train",
                                  model.ntokenizer, model.ctokneizer,
-                                 num_limit=None, overwrite=args.overwrite)
+                                 num_limit=1000, overwrite=args.overwrite, resample_rate=args.resample_rate)
 
     global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
     logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
@@ -86,7 +88,7 @@ def main():
 
 
 def load_dataset(data_dir, data_type, nl_tokenzier, pl_tokenizer, overwrite=False,
-                 thread_num=None, num_limit=None):
+                 thread_num=None, num_limit=None, resample_rate=1):
     cache_dir = os.path.join(data_dir, "cache")
     if not thread_num:
         thread_num = multiprocessing.cpu_count()
@@ -107,7 +109,8 @@ def load_dataset(data_dir, data_type, nl_tokenzier, pl_tokenizer, overwrite=Fals
         if data_type == "valid":
             dataset = convert_example_to_retrival_task_dataset(examples, nl_tokenzier, pl_tokenizer, thread_num)
         elif data_type == "train":
-            dataset = convert_example_to_triplet_dataset(examples, nl_tokenzier, pl_tokenizer, thread_num)
+            dataset = convert_example_to_triplet_dataset(examples, nl_tokenzier, pl_tokenizer, thread_num,
+                                                         resample_rate)
         logger.info("Saving features into cached file {}".format(cached_file))
         torch.save(dataset, cached_file)
     return dataset
@@ -137,12 +140,6 @@ def train(args, train_dataset, valid_dataset, model):
     # Train!
     logger.info("***** Running training *****")
     logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
-    logger.info(
-        "  Total train batch size (w. parallel, distributed & accumulation) = %d",
-        args.train_batch_size
-        * args.gradient_accumulation_steps
-        * (torch.distributed.get_world_size() if args.local_rank != -1 else 1),
-    )
     global_step = 1
     epochs_trained = 0
     steps_trained_in_current_epoch = 0
@@ -167,14 +164,12 @@ def train(args, train_dataset, valid_dataset, model):
         except ValueError:
             logger.info("  Starting fine-tuning.")
     tr_loss, logging_loss = 0.0, 0.0
-    tr_ac, logging_ac = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(
-        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
-    )
+        epochs_trained, int(args.num_train_epochs), desc="Epoch")
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
-        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
+        epoch_iterator = tqdm(train_dataloader, desc="Iteration")
         for step, batch in enumerate(epoch_iterator):
             if steps_trained_in_current_epoch > 0:
                 steps_trained_in_current_epoch -= 1
@@ -182,9 +177,9 @@ def train(args, train_dataset, valid_dataset, model):
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
             inputs = {
-                "text_ids": batch[0],
-                "pos_code_ids": batch[2],
-                "neg_code_ids": batch[4]
+                "text_ids": batch[1],
+                "pos_code_ids": batch[3],
+                "neg_code_ids": batch[5]
             }
             outputs = model(**inputs)
             loss = outputs['loss']
@@ -202,13 +197,13 @@ def train(args, train_dataset, valid_dataset, model):
                 global_step += 1
                 step_bar.update(1)
 
-                if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
+                if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
                 # Save model checkpoint
-                if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
+                if args.save_steps > 0 and global_step % args.save_steps == 0:
                     ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
                     if not os.path.exists(ckpt_output_dir):
                         os.makedirs(ckpt_output_dir)
@@ -226,8 +221,7 @@ def train(args, train_dataset, valid_dataset, model):
     if not os.path.isdir(model_output):
         os.mkdir(model_output)
     save_check_point(model, model_output, args, optimizer, scheduler)
-    if args.local_rank in [-1, 0]:
-        tb_writer.close()
+    tb_writer.close()
     return global_step, tr_loss / global_step
 
 
@@ -323,7 +317,7 @@ def convert_example_to_retrival_task_dataset(examples, NL_tokenizer, PL_tokenize
 def convert_example_to_triplet_dataset(examples, NL_tokenizer, PL_tokenizer, threads=1, resample_rate=1):
     features = []
     NL_index, PL_index, rel_index = index_exmaple_vecs(examples, NL_tokenizer, PL_tokenizer, threads)
-    for nl_id in NL_index.keys():
+    for nl_id in tqdm(NL_index.keys()):
         pos_pl_ids = rel_index[nl_id]
         selected_ids = TBertProcessor().sample_negative_examples_ids(list(PL_index.keys()), pos_pl_ids, resample_rate)
         for pos_pl_id in pos_pl_ids:
@@ -357,3 +351,7 @@ def save_examples(exampls, output_file):
     df['NL'] = nl
     df['PL'] = pl
     df.to_csv(output_file)
+
+
+if __name__ == "__main__":
+    main()
