@@ -193,7 +193,7 @@ class TBertProcessor:
         all_labels = torch.tensor([f[2] for f in features], dtype=torch.long)
         # dataset = TensorDataset(all_NL_input_ids, all_NL_attention_mask, all_PL_input_ids, all_PL_attention_mask,
         #                         all_labels, all_NL_ids, all_PL_ids)
-        dataset = TensorDataset(all_NL_input_ids, all_PL_input_ids, all_labels, all_NL_ids, all_PL_ids)
+        dataset = TensorDataset(all_NL_ids, all_NL_input_ids, all_PL_ids, all_PL_input_ids, all_labels)
         return dataset
 
 

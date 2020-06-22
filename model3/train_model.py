@@ -231,7 +231,6 @@ def train(args, train_dataset, valid_dataset, model):
 
 def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    # eval_sampler = SequentialSampler(dataset)
     eval_sampler = RandomSampler(dataset, replacement=True, num_samples=eval_num)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
@@ -247,12 +246,12 @@ def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
         batch = tuple(t.to(args.device) for t in batch)
         with torch.no_grad():
             inputs = {
-                "text_ids": batch[0],
-                "code_ids": batch[2],
+                "text_ids": batch[1],
+                "code_ids": batch[3],
             }
+            nl_id = batch[0]
+            pl_id = batch[2]
             label = batch[4]
-            nl_id = batch[5]
-            pl_id = batch[6]
             pred = model.get_sim_score(**inputs)
             for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred, label.tolist()):
                 res.append((n, p, prd[1], lb))
