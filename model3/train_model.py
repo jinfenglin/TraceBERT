@@ -69,6 +69,7 @@ def main():
         args.n_gpu = 1
     args.device = device
     logging.basicConfig(
+        filename='task.log',
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,

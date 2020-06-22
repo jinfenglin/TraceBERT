@@ -10,7 +10,6 @@ set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/model3"
 cd $root
 
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
-fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/model3/task.log &
 #pip3 install -r ../requirement.txt
 
 python3 train_model.py \
@@ -26,4 +25,4 @@ python3 train_model.py \
 --valid_num 100 \
 --valid_step 50 \
 --gradient_accumulation_steps 16 \
---resample_rate 2 > task.log 2>&1
+--resample_rate 2
