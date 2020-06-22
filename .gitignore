@@ -11,4 +11,5 @@ output
 __pycache__
 */VSM_baseline/*.csv
 model2/*.csv
+model3/*.csv
 *.log
