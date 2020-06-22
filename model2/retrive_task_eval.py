@@ -90,7 +90,7 @@ if __name__ == "__main__":
     data_dir = "./data/code_search_net/python"
     model_path = "output/resample_20_epoch_5"
     res_file = "./retrieval_res.csv"
-    device = 'cuda'
+    device = 'cpu'
     cache_dir = os.path.join(data_dir, "cache")
     cached_file = os.path.join(cache_dir, "retrieval_eval.dat".format())
     eval_batch_size = 8
@@ -129,14 +129,12 @@ if __name__ == "__main__":
             batch = tuple(t.to(device) for t in batch)
             with torch.no_grad():
                 inputs = {
-                    "text_ids": batch[0],
-                    "text_attention_mask": batch[1],
-                    "code_ids": batch[2],
-                    "code_attention_mask": batch[3],
+                    "text_ids": batch[1],
+                    "code_ids": batch[3],
                 }
                 label = batch[4]
-                nl_id = batch[5]
-                pl_id = batch[6]
+                nl_id = batch[0]
+                pl_id = batch[2]
                 outputs = model(**inputs)
                 logit = outputs['logits']
                 pred = torch.softmax(logit, 1).data.tolist()
