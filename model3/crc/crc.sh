@@ -23,7 +23,7 @@ python3 train_model.py \
 --save_steps 5000 \
 --num_train_epochs 5 \
 --learning_rate 4e-5 \
---valid_num 100 \
---valid_step 50 \
+--valid_num 20 \
+--valid_step 1 \
 --gradient_accumulation_steps 16 \
 --resample_rate 2
