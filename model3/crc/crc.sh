@@ -10,13 +10,14 @@ set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/model3"
 cd $root
 
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
+fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/model3/task.log &
 #pip3 install -r ../requirement.txt
 
 python3 train_model.py \
 --data_dir ../model2/data/code_search_net/python \
 --output_dir ./output \
 --model_path ./output \
---per_gpu_train_batch_size 8 \
+--per_gpu_train_batch_size 4 \
 --per_gpu_eval_batch_size 4 \
 --logging_steps 20 \
 --save_steps 5000 \
