@@ -84,7 +84,7 @@ def main():
                                  num_limit=args.valid_num, overwrite=args.overwrite)
     train_dataset = load_dataset(args.data_dir, "train",
                                  model.ntokenizer, model.ctokneizer,
-                                 num_limit=50, overwrite=args.overwrite, resample_rate=args.resample_rate)
+                                 num_limit=None, overwrite=args.overwrite, resample_rate=args.resample_rate)
 
     global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
     logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
