@@ -23,16 +23,13 @@ class CosineTrainHeader(nn.Module):
         self.text_pooler = AvgPooler(config)
         self.margin = 0.5
 
-    def similarity(self, vec1, vec2):
-        return F.cosine_similarity(vec1, vec2)
-
     def forward(self, text_hidden, pos_code_hidden, neg_code_hidden):
         pool_pos_code_hidden = self.code_pooler(pos_code_hidden)
         pool_neg_code_hidden = self.code_pooler(neg_code_hidden)
         pool_text_hidden = self.text_pooler(text_hidden)
 
-        anchor_sim = self.similarity(pool_text_hidden, pool_pos_code_hidden)
-        neg_sim = self.similarity(pool_text_hidden, pool_neg_code_hidden)
+        anchor_sim = F.cosine_similarity(pool_text_hidden, pool_pos_code_hidden)
+        neg_sim = F.cosine_similarity(pool_text_hidden, pool_neg_code_hidden)
         loss = (self.margin - anchor_sim + neg_sim).clamp(min=1e-6).mean()
 
         return loss
@@ -73,8 +70,8 @@ class TBert2(PreTrainedModel):
         return tokenizer.encode(str, return_tensors='pt', add_special_tokens=True)
 
     def get_sim_score(self, text_ids, code_ids):
-        text_embed = self.nbert(text_ids)
-        code_embed = self.cbert(code_ids)
+        text_embed = self.cls.text_pooler(self.nbert(text_ids)[0])
+        code_embed = self.cls.code_pooler(self.cbert(code_ids)[0])
         return F.cosine_similarity(text_embed, code_embed)
 
 

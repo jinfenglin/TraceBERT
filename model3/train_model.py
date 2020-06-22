@@ -84,7 +84,7 @@ def main():
                                  num_limit=args.valid_num, overwrite=args.overwrite)
     train_dataset = load_dataset(args.data_dir, "train",
                                  model.ntokenizer, model.ctokneizer,
-                                 num_limit=None, overwrite=args.overwrite, resample_rate=args.resample_rate)
+                                 num_limit=50, overwrite=args.overwrite, resample_rate=args.resample_rate)
 
     global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
     logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
@@ -253,8 +253,8 @@ def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
             pl_id = batch[2]
             label = batch[4]
             pred = model.get_sim_score(**inputs)
-            for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred, label.tolist()):
-                res.append((n, p, prd[1], lb))
+            for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred.tolist(), label.tolist()):
+                res.append((n, p, prd, lb))
     df = pd.DataFrame()
     df['s_id'] = [x[0] for x in res]
     df['t_id'] = [x[1] for x in res]
