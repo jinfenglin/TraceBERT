@@ -189,6 +189,7 @@ def train(args, train_dataset, valid_dataset, model):
             loss = outputs['loss']
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
+            tr_loss += loss.item()
 
             loss.backward()
 
@@ -216,7 +217,7 @@ def train(args, train_dataset, valid_dataset, model):
 
                 if args.valid_step > 0 and global_step % args.valid_step == 0:
                     if args.valid_num:
-                        f1, success_rate = evaluate(args, valid_dataset, model, args.valid_num)
+                        f1, success_rate = evaluate(args, valid_dataset, model)
                         tb_writer.add_scalar("valid_f1", f1, global_step)
                         tb_writer.add_scalar("success_rate", success_rate, global_step)
     step_bar.close()
@@ -229,10 +230,10 @@ def train(args, train_dataset, valid_dataset, model):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
+def evaluate(args, dataset, model, prefix="", print_detail=True):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    eval_sampler = RandomSampler(dataset, replacement=True, num_samples=eval_num)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+    # eval_sampler = RandomSampler(dataset, replacement=True, num_samples=eval_num)
+    eval_dataloader = DataLoader(dataset, batch_size=args.eval_batch_size)
 
     # Eval!
     logger.info("***** Running evaluation {} *****".format(prefix))
