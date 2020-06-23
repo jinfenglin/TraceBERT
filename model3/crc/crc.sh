@@ -24,7 +24,7 @@ python3 train_model.py \
 --num_train_epochs 3 \
 --learning_rate 2e-5 \
 --valid_num 100 \
---valid_step 100 \
+--valid_step 1000 \
 --gradient_accumulation_steps 16 \
 --overwrite \
 --resample_rate 6
