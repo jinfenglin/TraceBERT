@@ -144,7 +144,7 @@ def train(args, train_dataset, valid_dataset, model):
     # Train!
     logger.info("***** Running training *****")
     logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
-    global_step = 1
+    global_step = 0
     epochs_trained = 0
     steps_trained_in_current_epoch = 0
     if os.path.exists(args.model_path):
@@ -202,7 +202,7 @@ def train(args, train_dataset, valid_dataset, model):
                 global_step += 1
                 step_bar.update(1)
 
-                if args.logging_steps > 0 and global_step % args.logging_steps == 0:
+                if args.logging_steps > 0 and global_step % args.logging_steps == 1:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
@@ -215,7 +215,7 @@ def train(args, train_dataset, valid_dataset, model):
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
                     logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
 
-                if args.valid_step > 0 and global_step % args.valid_step == 0:
+                if args.valid_step > 0 and global_step % args.valid_step == 1:
                     if args.valid_num:
                         f1, success_rate = evaluate(args, valid_dataset, model)
                         tb_writer.add_scalar("valid_f1", f1, global_step)
@@ -263,8 +263,7 @@ def evaluate(args, dataset, model, prefix="", print_detail=True):
     df['label'] = [x[3] for x in res]
     max_f1, out_p, out_re, out_thre = best_accuracy(df, threshold_interval=1)
     success_rate = topN_RPF(df, 3)
-
-    tqdm.write("evaluate F1={}".format(max_f1))
+    tqdm.write("F1 = {}, precision={}, recall={}, thresold = {}".format(max_f1, out_p, out_re, out_thre))
     tqdm.write("Success@3={}".format(success_rate))
     return max_f1, success_rate
 

@@ -1,5 +1,5 @@
-06/23/2020 04:49:28 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
-06/23/2020 04:49:28 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
+06/24/2020 03:28:08 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
+06/24/2020 03:28:08 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
   "architectures": [
     "RobertaForMaskedLM"
   ],
@@ -21,14 +21,14 @@
   "vocab_size": 52000
 }
 
-06/23/2020 04:49:28 - INFO - transformers.tokenization_utils -   Model name 'huggingface/CodeBERTa-small-v1' not found in model shortcut name list (roberta-base, roberta-large, roberta-large-mnli, distilroberta-base, roberta-base-openai-detector, roberta-large-openai-detector). Assuming 'huggingface/CodeBERTa-small-v1' is a path, a model identifier, or url to a directory containing tokenizer files.
-06/23/2020 04:49:29 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/vocab.json from cache at C:\Users\ljfnw\.cache\torch\transformers\4378e0cbd4e198a29d18acffb589430ff433fbbfd637803fddbc8e4b5108368f.516f21a3e3c538a6e0b52aea5987651b995c82fba6021ab1cd79ef987877432b
-06/23/2020 04:49:29 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/merges.txt from cache at C:\Users\ljfnw\.cache\torch\transformers\2b5cb186465fac4f5d94ce950b4b26ba8333b9387ec72e11872819344c529f7e.cdee6ff5de424ca98962369a559ecdef682286d4dfc7a37d91fd6a4cc1896f4a
-06/23/2020 04:49:29 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/added_tokens.json from cache at None
-06/23/2020 04:49:29 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/special_tokens_map.json from cache at None
-06/23/2020 04:49:29 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/tokenizer_config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\1b83cbda23054c9cf5dd1b6cdb179164fec7d3f1bc4aa926da97db3836186aa9.02b17bf1daddea30357807577d0b4159277ee522b038c41800666fc8d88d1fee
-06/23/2020 04:49:29 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
-06/23/2020 04:49:29 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
+06/24/2020 03:28:08 - INFO - transformers.tokenization_utils -   Model name 'huggingface/CodeBERTa-small-v1' not found in model shortcut name list (roberta-base, roberta-large, roberta-large-mnli, distilroberta-base, roberta-base-openai-detector, roberta-large-openai-detector). Assuming 'huggingface/CodeBERTa-small-v1' is a path, a model identifier, or url to a directory containing tokenizer files.
+06/24/2020 03:28:09 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/vocab.json from cache at C:\Users\ljfnw\.cache\torch\transformers\4378e0cbd4e198a29d18acffb589430ff433fbbfd637803fddbc8e4b5108368f.516f21a3e3c538a6e0b52aea5987651b995c82fba6021ab1cd79ef987877432b
+06/24/2020 03:28:09 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/merges.txt from cache at C:\Users\ljfnw\.cache\torch\transformers\2b5cb186465fac4f5d94ce950b4b26ba8333b9387ec72e11872819344c529f7e.cdee6ff5de424ca98962369a559ecdef682286d4dfc7a37d91fd6a4cc1896f4a
+06/24/2020 03:28:09 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/added_tokens.json from cache at None
+06/24/2020 03:28:09 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/special_tokens_map.json from cache at None
+06/24/2020 03:28:09 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/tokenizer_config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\1b83cbda23054c9cf5dd1b6cdb179164fec7d3f1bc4aa926da97db3836186aa9.02b17bf1daddea30357807577d0b4159277ee522b038c41800666fc8d88d1fee
+06/24/2020 03:28:09 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
+06/24/2020 03:28:09 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
   "architectures": [
     "RobertaForMaskedLM"
   ],
@@ -50,9 +50,9 @@
   "vocab_size": 52000
 }
 
-06/23/2020 04:49:29 - INFO - transformers.modeling_utils -   loading weights file https://cdn.huggingface.co/huggingface/CodeBERTa-small-v1/pytorch_model.bin from cache at C:\Users\ljfnw\.cache\torch\transformers\8df1efcdb462fb48d8e3d93d8f869641fce29d289d95b8d357a5854c7dc2b1b9.5561c147dbc48bf85cff1b96abd42419658212abeb129931ca149d3ad567a7d4
-06/23/2020 04:49:33 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
-06/23/2020 04:49:33 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
+06/24/2020 03:28:09 - INFO - transformers.modeling_utils -   loading weights file https://cdn.huggingface.co/huggingface/CodeBERTa-small-v1/pytorch_model.bin from cache at C:\Users\ljfnw\.cache\torch\transformers\8df1efcdb462fb48d8e3d93d8f869641fce29d289d95b8d357a5854c7dc2b1b9.5561c147dbc48bf85cff1b96abd42419658212abeb129931ca149d3ad567a7d4
+06/24/2020 03:28:12 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
+06/24/2020 03:28:12 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
   "architectures": [
     "RobertaForMaskedLM"
   ],
@@ -74,14 +74,14 @@
   "vocab_size": 52000
 }
 
-06/23/2020 04:49:33 - INFO - transformers.tokenization_utils -   Model name 'huggingface/CodeBERTa-small-v1' not found in model shortcut name list (roberta-base, roberta-large, roberta-large-mnli, distilroberta-base, roberta-base-openai-detector, roberta-large-openai-detector). Assuming 'huggingface/CodeBERTa-small-v1' is a path, a model identifier, or url to a directory containing tokenizer files.
-06/23/2020 04:49:34 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/vocab.json from cache at C:\Users\ljfnw\.cache\torch\transformers\4378e0cbd4e198a29d18acffb589430ff433fbbfd637803fddbc8e4b5108368f.516f21a3e3c538a6e0b52aea5987651b995c82fba6021ab1cd79ef987877432b
-06/23/2020 04:49:34 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/merges.txt from cache at C:\Users\ljfnw\.cache\torch\transformers\2b5cb186465fac4f5d94ce950b4b26ba8333b9387ec72e11872819344c529f7e.cdee6ff5de424ca98962369a559ecdef682286d4dfc7a37d91fd6a4cc1896f4a
-06/23/2020 04:49:34 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/added_tokens.json from cache at None
-06/23/2020 04:49:34 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/special_tokens_map.json from cache at None
-06/23/2020 04:49:34 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/tokenizer_config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\1b83cbda23054c9cf5dd1b6cdb179164fec7d3f1bc4aa926da97db3836186aa9.02b17bf1daddea30357807577d0b4159277ee522b038c41800666fc8d88d1fee
-06/23/2020 04:49:34 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
-06/23/2020 04:49:34 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
+06/24/2020 03:28:12 - INFO - transformers.tokenization_utils -   Model name 'huggingface/CodeBERTa-small-v1' not found in model shortcut name list (roberta-base, roberta-large, roberta-large-mnli, distilroberta-base, roberta-base-openai-detector, roberta-large-openai-detector). Assuming 'huggingface/CodeBERTa-small-v1' is a path, a model identifier, or url to a directory containing tokenizer files.
+06/24/2020 03:28:13 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/vocab.json from cache at C:\Users\ljfnw\.cache\torch\transformers\4378e0cbd4e198a29d18acffb589430ff433fbbfd637803fddbc8e4b5108368f.516f21a3e3c538a6e0b52aea5987651b995c82fba6021ab1cd79ef987877432b
+06/24/2020 03:28:13 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/merges.txt from cache at C:\Users\ljfnw\.cache\torch\transformers\2b5cb186465fac4f5d94ce950b4b26ba8333b9387ec72e11872819344c529f7e.cdee6ff5de424ca98962369a559ecdef682286d4dfc7a37d91fd6a4cc1896f4a
+06/24/2020 03:28:13 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/added_tokens.json from cache at None
+06/24/2020 03:28:13 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/special_tokens_map.json from cache at None
+06/24/2020 03:28:13 - INFO - transformers.tokenization_utils -   loading file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/tokenizer_config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\1b83cbda23054c9cf5dd1b6cdb179164fec7d3f1bc4aa926da97db3836186aa9.02b17bf1daddea30357807577d0b4159277ee522b038c41800666fc8d88d1fee
+06/24/2020 03:28:13 - INFO - transformers.configuration_utils -   loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/huggingface/CodeBERTa-small-v1/config.json from cache at C:\Users\ljfnw\.cache\torch\transformers\f6d3d6a640654d75953c1d5d7552a54ee4e80573e7d0d517c14038a9c3d18459.2fa9ab01710558b67d737fc4bc74f603992a838000e2218d632311a52eb3a88a
+06/24/2020 03:28:13 - INFO - transformers.configuration_utils -   Model config RobertaConfig {
   "architectures": [
     "RobertaForMaskedLM"
   ],
@@ -103,10 +103,13 @@
   "vocab_size": 52000
 }
 
-06/23/2020 04:49:34 - INFO - transformers.modeling_utils -   loading weights file https://cdn.huggingface.co/huggingface/CodeBERTa-small-v1/pytorch_model.bin from cache at C:\Users\ljfnw\.cache\torch\transformers\8df1efcdb462fb48d8e3d93d8f869641fce29d289d95b8d357a5854c7dc2b1b9.5561c147dbc48bf85cff1b96abd42419658212abeb129931ca149d3ad567a7d4
-06/23/2020 04:49:37 - INFO - __main__ -   Training/evaluation parameters Namespace(adam_epsilon=1e-08, data_dir='../model2/data/code_search_net/python', device=device(type='cpu'), gradient_accumulation_steps=16, learning_rate=5e-05, logging_steps=2, max_grad_norm=1.0, model_path='./output', n_gpu=0, no_cuda=True, num_train_epochs=3.0, output_dir='./output', overwrite=False, per_gpu_eval_batch_size=1, per_gpu_train_batch_size=2, resample_rate=2, save_steps=10, valid_num=20, valid_step=100, warmup_steps=0, weight_decay=0.0)
-06/23/2020 04:49:37 - INFO - __main__ -   Loading features from cached file ../model2/data/code_search_net/python\cache\model3_cached_valid.dat
-06/23/2020 04:49:37 - INFO - __main__ -   Loading features from cached file ../model2/data/code_search_net/python\cache\model3_cached_train.dat
-06/23/2020 04:49:37 - INFO - __main__ -   ***** Running training *****
-06/23/2020 04:49:37 - INFO - __main__ -     Instantaneous batch size per GPU = 2
-06/23/2020 04:49:37 - INFO - __main__ -     Starting fine-tuning.
+06/24/2020 03:28:13 - INFO - transformers.modeling_utils -   loading weights file https://cdn.huggingface.co/huggingface/CodeBERTa-small-v1/pytorch_model.bin from cache at C:\Users\ljfnw\.cache\torch\transformers\8df1efcdb462fb48d8e3d93d8f869641fce29d289d95b8d357a5854c7dc2b1b9.5561c147dbc48bf85cff1b96abd42419658212abeb129931ca149d3ad567a7d4
+06/24/2020 03:28:17 - INFO - __main__ -   Training/evaluation parameters Namespace(adam_epsilon=1e-08, data_dir='../model2/data/code_search_net/python', device=device(type='cuda', index=0), gradient_accumulation_steps=1, learning_rate=5e-05, logging_steps=2, max_grad_norm=1.0, model_path='./output', n_gpu=1, no_cuda=False, num_train_epochs=3.0, output_dir='./output', overwrite=False, per_gpu_eval_batch_size=1, per_gpu_train_batch_size=1, resample_rate=2, save_steps=10, valid_num=20, valid_step=100, warmup_steps=0, weight_decay=0.0)
+06/24/2020 03:28:17 - INFO - __main__ -   Loading features from cached file ../model2/data/code_search_net/python\cache\model3_cached_valid.dat
+06/24/2020 03:28:17 - INFO - __main__ -   Loading features from cached file ../model2/data/code_search_net/python\cache\model3_cached_train.dat
+06/24/2020 03:28:17 - INFO - __main__ -   ***** Running training *****
+06/24/2020 03:28:17 - INFO - __main__ -     Instantaneous batch size per GPU = 1
+06/24/2020 03:28:17 - INFO - __main__ -     Starting fine-tuning.
+06/24/2020 03:29:02 - INFO - __main__ -   ***** Running evaluation  *****
+06/24/2020 03:29:02 - INFO - __main__ -     Num examples = 324
+06/24/2020 03:29:02 - INFO - __main__ -     Batch size = 1
