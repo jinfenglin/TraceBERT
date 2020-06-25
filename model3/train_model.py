@@ -167,7 +167,7 @@ def train(args, train_dataset, valid_dataset, model):
             logger.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
         except ValueError:
             logger.info("  Starting fine-tuning.")
-    tr_loss, logging_loss = 0.0, 0.0
+    tr_loss = 0.0
     model.zero_grad()
     train_iterator = trange(
         epochs_trained, int(args.num_train_epochs), desc="Epoch")
@@ -204,8 +204,8 @@ def train(args, train_dataset, valid_dataset, model):
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 1:
                     tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
-                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
-                    logging_loss = tr_loss
+                    tb_writer.add_scalar("loss", tr_loss / args.logging_steps, global_step)
+                    tr_loss = 0
 
                 # Save model checkpoint
                 if args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -253,7 +253,7 @@ def evaluate(args, dataset, model, prefix="", print_detail=True):
             nl_id = batch[0]
             pl_id = batch[2]
             label = batch[4]
-            pred = model.get_sim_score(**inputs)
+            pred = (model.get_sim_score(**inputs) + 1) / 2
             for n, p, prd, lb in zip(nl_id.tolist(), pl_id.tolist(), pred.tolist(), label.tolist()):
                 res.append((n, p, prd, lb))
     df = pd.DataFrame()
@@ -261,6 +261,7 @@ def evaluate(args, dataset, model, prefix="", print_detail=True):
     df['t_id'] = [x[1] for x in res]
     df['pred'] = [x[2] for x in res]
     df['label'] = [x[3] for x in res]
+    df.to_csv("eval_res.csv")
     max_f1, out_p, out_re, out_thre = best_accuracy(df, threshold_interval=1)
     success_rate = topN_RPF(df, 3)
     tqdm.write("F1 = {}, precision={}, recall={}, thresold = {}".format(max_f1, out_p, out_re, out_thre))

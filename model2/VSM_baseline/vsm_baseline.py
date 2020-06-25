@@ -176,7 +176,7 @@ def topN_RPF(data_frame, N):
             N_total += 1
             if t[3] == 1:
                 rel_cnt_at_N += 1
-    success_rate = rel_cnt_at_N / len(res_dict)
+    success_rate = rel_cnt_at_N / len(res_dict) if len(res_dict) > 0 else 0
     # print("N = {}, SuccessRate={},Recall={}".format(N, round(success_rate, 3), round(recall, 3)))
     return success_rate
 

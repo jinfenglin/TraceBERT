@@ -21,7 +21,7 @@ class CosineTrainHeader(nn.Module):
         self.hidden_size = config.hidden_size
         self.code_pooler = AvgPooler(config)
         self.text_pooler = AvgPooler(config)
-        self.margin = 0.05
+        self.margin = 1
 
     def forward(self, text_hidden, pos_code_hidden, neg_code_hidden):
         pool_pos_code_hidden = self.code_pooler(pos_code_hidden)

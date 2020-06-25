@@ -9,5 +9,6 @@ python train_model.py \
 --learning_rate 2e-5 \
 --valid_num 100 \
 --valid_step 100 \
+--num_train_epochs 2 \
 --gradient_accumulation_steps 8 \
 --resample_rate 5
