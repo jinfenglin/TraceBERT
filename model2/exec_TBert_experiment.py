@@ -4,6 +4,9 @@ import multiprocessing
 import os
 import sys
 
+sys.path.append("..")
+sys.path.append("../common")
+
 import torch
 from torch.optim import AdamW
 from torch.utils.data import RandomSampler, DataLoader
@@ -11,19 +14,12 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
 from transformers import BertConfig, get_linear_schedule_with_warmup
 
-from common.utils import save_examples, save_check_point, load_check_point, write_tensor_board, MODEL_FNAME
 
-sys.path.append("..")
-sys.path.append("../common")
+from common.utils import save_examples, save_check_point, load_check_point, write_tensor_board, MODEL_FNAME, set_seed
 from model2 import CodeSearchNetReader, TBertProcessor
 from model2.TBert import TBert
 
 logger = logging.getLogger(__name__)
-
-
-def set_seed(args):
-    set_seed(args.seed, args.n_gpu)
-
 
 def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
                             thread_num=None, num_limit=None, resample_rate=1, local_rank=-1):
@@ -145,7 +141,7 @@ def train(args, train_dataset, valid_dataset, model):
     train_iterator = trange(
         args.epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
-    set_seed(args)
+    set_seed(args.seed, args.n_gpu)
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
@@ -293,7 +289,7 @@ def main():
         "--data_dir", default="./data", type=str,
         help="The input data dir. Should contain the .json files for the task.")
     parser.add_argument(
-        "--model_path", default=None, type=str, required=True,
+        "--model_path", default=None, type=str,
         help="path of checkpoint and trained model, if none will do training from scratch")
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
