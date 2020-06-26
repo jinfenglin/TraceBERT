@@ -2,47 +2,31 @@ import argparse
 import logging
 import multiprocessing
 import os
-import random
 import sys
 
 import torch
-import numpy as np
 from torch.optim import AdamW
 from torch.utils.data import RandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
 from transformers import BertConfig, get_linear_schedule_with_warmup
 
+from common.utils import save_examples, save_check_point, load_check_point, write_tensor_board, MODEL_FNAME
+
 sys.path.append("..")
+sys.path.append("../common")
 from model2 import CodeSearchNetReader, TBertProcessor
 from model2.TBert import TBert
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
 def set_seed(args):
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if args.n_gpu > 0:
-        torch.cuda.manual_seed_all(args.seed)
-
-
-def save_examples(exampls, output_file):
-    nl = []
-    pl = []
-    df = pd.DataFrame()
-    for exmp in exampls:
-        nl.append(exmp['NL'])
-        pl.append(exmp['PL'])
-    df['NL'] = nl
-    df['PL'] = pl
-    df.to_csv(output_file)
+    set_seed(args.seed, args.n_gpu)
 
 
 def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
-                            thread_num=None, num_limit=None, resample_rate=1):
+                            thread_num=None, num_limit=None, resample_rate=1, local_rank=-1):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
@@ -53,6 +37,7 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     :param num_limit the max number of instances read from the data file
     :return:
     """
+
     # Load data features from cache or dataset file
     if not thread_num:
         thread_num = multiprocessing.cpu_count()
@@ -115,6 +100,8 @@ def train(args, train_dataset, valid_dataset, model):
             from apex import amp
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+        model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
@@ -138,44 +125,33 @@ def train(args, train_dataset, valid_dataset, model):
     logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", t_total)
 
-    global_step = 1
-    epochs_trained = 0
-    steps_trained_in_current_epoch = 0
-    # Check if continuing training from a checkpoint
+    args.global_step = 1
+    args.epochs_trained = 0
+    args.steps_trained_in_current_epoch = 0
+
     if os.path.exists(args.model_path):
-        try:
-            # set global_step to gobal_step of last saved checkpoint from model path
-            checkpoint_suffix = args.model_path.split("-")[-1].split("/")[0]
-            global_step = int(checkpoint_suffix)
-            epochs_trained = global_step // (len(train_dataloader) // args.gradient_accumulation_steps)
-            steps_trained_in_current_epoch = global_step % (len(train_dataloader) // args.gradient_accumulation_steps)
+        ckpt = load_check_point(model, args.model_path, optimizer, scheduler)
+        model, optimizer, scheduler, args = ckpt["model"], ckpt['optimizer'], ckpt['scheduler'], ckpt['args']
+        logger.info("  Continuing training from checkpoint, will skip to saved global_step")
+        logger.info("  Continuing training from epoch {}".format(args.epochs_trained))
+        logger.info("  Continuing training from global step {}".format(args.global_step))
+        logger.info("  Will skip the first {} steps in the first epoch".format(args.steps_trained_in_current_epoch))
+    else:
+        logger.info("Start a new training")
 
-            optmz_path = os.path.join(args.model_path, "optimizer.pt")
-            sched_path = os.path.join(args.model_path, "scheduler.pt")
-            if os.path.isfile(optmz_path) and os.path.isfile(sched_path):
-                optimizer.load_state_dict(torch.load(optmz_path))
-                scheduler.load_state_dict(torch.load(sched_path))
-
-            logger.info("  Continuing training from checkpoint, will skip to saved global_step")
-            logger.info("  Continuing training from epoch %d", epochs_trained)
-            logger.info("  Continuing training from global step %d", global_step)
-            logger.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
-        except ValueError:
-            logger.info("  Starting fine-tuning.")
-
-    tr_loss, logging_loss = 0.0, 0.0
-    tr_ac, logging_ac = 0.0, 0.0
+    tr_loss = 0.0
+    tr_ac = 0.0
     model.zero_grad()
     train_iterator = trange(
-        epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
+        args.epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
     set_seed(args)
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
-            if steps_trained_in_current_epoch > 0:
-                steps_trained_in_current_epoch -= 1
+            if args.steps_trained_in_current_epoch > 0:
+                args.steps_trained_in_current_epoch -= 1
                 continue
 
             model.train()
@@ -212,48 +188,46 @@ def train(args, train_dataset, valid_dataset, model):
                 optimizer.step()
                 scheduler.step()
                 model.zero_grad()
-                global_step += 1
+                args.global_step += 1
                 step_bar.update(1)
 
-                if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
-                    tb_writer.add_scalar("accuracy",
-                                         (tr_ac - logging_ac) / args.logging_steps / (
-                                                 args.train_batch_size * args.gradient_accumulation_steps),
-                                         global_step)
-                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
-                    logging_loss = tr_loss
-                    logging_ac = tr_ac
+                if args.local_rank in [-1, 0] and args.logging_steps > 0 and args.global_step % args.logging_steps == 0:
+                    tb_data = {
+                        'lr': scheduler.get_last_lr()[0],
+                        'acc': tr_ac / args.logging_steps / (
+                                args.train_batch_size * args.gradient_accumulation_steps),
+                        'loss': tr_loss / args.logging_steps
+                    }
+                    write_tensor_board(tb_writer, tb_data, args.global_step)
+                    tr_loss = 0.0
+                    tr_ac = 0.0
 
                 # Save model checkpoint
-                if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
-                    ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
-                    if not os.path.exists(ckpt_output_dir):
-                        os.makedirs(ckpt_output_dir)
+                if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
+                    # step invoke checkpoint writing
+                    ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
                     save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
-                    logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
 
-                if args.valid_step > 0 and global_step % args.valid_step == 0:
+                if args.valid_step > 0 and args.global_step % args.valid_step == 0:
+                    # step invoke validation
                     if args.valid_num:
                         valid_accuracy = evaluate(args, valid_dataset, model, args.valid_num)
-                        tb_writer.add_scalar("valid_accuracy", valid_accuracy, global_step)
+                        tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
 
-            if args.max_steps > 0 and global_step > args.max_steps:
+            if args.max_steps > 0 and args.global_step > args.max_steps:
                 epoch_iterator.close()
                 break
-        if args.max_steps > 0 and global_step > args.max_steps:
+        if args.max_steps > 0 and args.global_step > args.max_steps:
             train_iterator.close()
             break
     step_bar.close()
 
-    logger.info("Save the trained model...")
-    model_output = os.path.join(args.output_dir, "resample_20_epoch_5")
-    if not os.path.isdir(model_output):
-        os.mkdir(model_output)
+    model_output = os.path.join(args.output_dir, "final_model")
     save_check_point(model, model_output, args, optimizer, scheduler)
+
     if args.local_rank in [-1, 0]:
         tb_writer.close()
-    return global_step, tr_loss / global_step
+    return args.global_step, tr_loss
 
 
 def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
@@ -295,13 +269,6 @@ def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
     return accuracy
 
 
-def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
-    torch.save(model, os.path.join(ckpt_dir, 't_bert.pt'))
-    torch.save(args, os.path.join(ckpt_dir, "training_args.bin"))
-    torch.save(optimizer.state_dict(), os.path.join(ckpt_dir, "optimizer.pt"))
-    torch.save(scheduler.state_dict(), os.path.join(ckpt_dir, "scheduler.pt"))
-
-
 def evaluate_checkpoint(checkpoint, eval_dataset, args, eval_num):
     """
 
@@ -310,10 +277,12 @@ def evaluate_checkpoint(checkpoint, eval_dataset, args, eval_num):
     :param num_limit: size of valid dataset that will attend evaluation
     :return:
     """
-    model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
+    # model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
+    model = TBert(BertConfig())
+    model.load_state_dict(torch.load(os.path.join(checkpoint, MODEL_FNAME)))
     model.to(args.device)
-    if not eval_num:
-        eval_num = len(eval_dataset)
+
+    eval_num = len(eval_dataset) if not eval_num else eval_num
     result = evaluate(args, eval_dataset, model, eval_num)
     return result
 
@@ -326,8 +295,6 @@ def main():
     parser.add_argument(
         "--model_path", default=None, type=str, required=True,
         help="path of checkpoint and trained model, if none will do training from scratch")
-    parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
-    parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
     parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
     parser.add_argument("--valid_num", type=int, default=100,
@@ -413,7 +380,6 @@ def main():
     if args.fp16:
         try:
             import apex
-
             apex.amp.register_half_function(torch, "einsum")
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
@@ -422,14 +388,13 @@ def main():
                                             model.ntokenizer, model.ctokneizer,
                                             is_training=True, num_limit=None, overwrite=args.overwrite)
     # Training
-    if args.do_train:
-        # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
-        train_dataset = load_and_cache_examples(args.data_dir, "train",
-                                                model.ntokenizer, model.ctokneizer,
-                                                is_training=True, num_limit=100, overwrite=args.overwrite,
-                                                resample_rate=args.resample_rate)
-        global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
-        logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
+    # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
+    train_dataset = load_and_cache_examples(args.data_dir, "train",
+                                            model.ntokenizer, model.ctokneizer,
+                                            is_training=True, num_limit=100, overwrite=args.overwrite,
+                                            resample_rate=args.resample_rate)
+    global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
+    logger.info("Training finished with  global_step = {}, final loss = {}".format(global_step, tr_loss))
 
 
 if __name__ == "__main__":

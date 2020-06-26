@@ -1,17 +1,15 @@
 python exec_TBert_experiment.py \
 --data_dir ./data/code_search_net/python \
---do_train \
---do_eval \
 --output_dir ./output \
---model_path ./output \
+--fp16 \
 --per_gpu_train_batch_size 8 \
 --per_gpu_eval_batch_size 8 \
 --logging_steps 10 \
 --save_steps 10000 \
 --gradient_accumulation_steps 8 \
---num_train_epochs 50 \
+--num_train_epochs 5 \
 --learning_rate 4e-5 \
 --valid_num 100 \
 --valid_step 50 \
---resample_rate 200 \
+--resample_rate 20 \
 --overwrite
