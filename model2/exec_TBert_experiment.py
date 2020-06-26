@@ -141,7 +141,6 @@ def train(args, train_dataset, valid_dataset, model):
     train_iterator = trange(
         args.epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
-    set_seed(args.seed, args.n_gpu)
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
@@ -362,7 +361,7 @@ def main():
     )
 
     # Set seed
-    set_seed(args)
+    set_seed(args.seed, args.n_gpu)
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
