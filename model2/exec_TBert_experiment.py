@@ -326,6 +326,13 @@ def main():
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
     parser.add_argument("--resample_rate", default=1, type=int, help="Oversample rate for positive examples, "
                                                                      "negative examples will match the number")
+    parser.add_argument(
+        "--fp16_opt_level",
+        type=str,
+        default="O1",
+        help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
+        "See details at https://nvidia.github.io/apex/amp.html",
+    )
     args = parser.parse_args()
 
     # Setup CUDA, GPU & distributed training
