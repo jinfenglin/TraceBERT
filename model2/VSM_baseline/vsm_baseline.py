@@ -11,7 +11,7 @@ import many_stop_words
 from pandas import DataFrame
 from tqdm import tqdm
 
-from model2 import CodeSearchNetReader
+from common.data_processing import CodeSearchNetReader
 from model2.VSM_baseline.IRs import VSM
 import pandas as pd
 

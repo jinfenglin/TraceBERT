@@ -62,3 +62,13 @@ def load_check_point(model, ckpt_dir, optimizer, scheduler):
     scheduler.load_state_dict(torch.load(sched_path))
     args = torch.load(ARG_FNAME)
     return {'model': model, "optimizer": optimizer, "scheduler": scheduler, "args": args}
+
+
+def exclude_and_sample(sample_pool, exclude, num):
+    """"""
+    for id in exclude:
+        sample_pool.remove(id)
+    selected = random.sample(sample_pool, num)
+    return selected
+
+

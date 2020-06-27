@@ -4,6 +4,10 @@ import multiprocessing
 import os
 import sys
 
+import pandas as pd
+
+from model2.VSM_baseline.vsm_baseline import best_accuracy
+
 sys.path.append("..")
 sys.path.append("../common")
 
@@ -14,15 +18,15 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
 from transformers import BertConfig, get_linear_schedule_with_warmup
 
-from common.utils import save_examples, save_check_point, load_check_point, write_tensor_board, MODEL_FNAME, set_seed
-from model2 import CodeSearchNetReader, TBertProcessor
+from common.utils import save_check_point, load_check_point, write_tensor_board, MODEL_FNAME, set_seed, \
+    exclude_and_sample
+from common.data_processing import CodeSearchNetReader, DataConvert, DatasetCreater
 from model2.TBert import TBert
 
 logger = logging.getLogger(__name__)
 
 
-def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_training, overwrite=False,
-                            thread_num=None, num_limit=None, resample_rate=1, local_rank=-1):
+def load_examples(data_dir, data_type, ntokenizer, ctokenzier, overwrite=False, num_limit=None):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
@@ -33,50 +37,58 @@ def load_and_cache_examples(data_dir, data_type, nl_tokenzier, pl_tokenizer, is_
     :param num_limit the max number of instances read from the data file
     :return:
     """
-
-    # Load data features from cache or dataset file
-    if not thread_num:
-        thread_num = multiprocessing.cpu_count()
-
     cache_dir = os.path.join(data_dir, "cache")
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
     cached_file = os.path.join(cache_dir, "cached_{}.dat".format(data_type))
-    example_debug_file = os.path.join(cache_dir, "debug_{}.dat".format(data_type))
-    # Init features and dataset from cache if it exists
     if os.path.exists(cached_file) and not overwrite:
-        logger.info("Loading features from cached file %s", cached_file)
-        dataset = torch.load(cached_file)
+        logger.info("Loading examples from cached file {}".format(cached_file))
+        res = torch.load(cached_file)
     else:
-        logger.info("Creating features from dataset file at %s", data_dir)
+        logger.info("Creating examples from dataset file at {}".format(data_dir))
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(type=data_type, num_limit=None, summary_only=True)
-        logger.info(
-            "Creating features for {} dataset with num of {} and resample_rate {}".format(data_type, len(examples),
-                                                                                          resample_rate))
-        save_examples(examples, example_debug_file)  # save examples for debugging purpose
-        dataset = TBertProcessor().convert_examples_to_dataset(examples, nl_tokenzier, pl_tokenizer,
-                                                               is_training=is_training, threads=thread_num,
-                                                               resample_rate=resample_rate)
-        logger.info("Saving features into cached file {}".format(cached_file))
-        torch.save(dataset, cached_file)
-    return dataset
+        examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
+        NL_index, PL_index, rel_index = DataConvert.index_exmaple_vecs(examples, ntokenizer, ctokenzier)
+        res = {"NL_index": NL_index, "PL_index": PL_index, "rel": rel_index}
+        logger.info("Saving processed examples into cached file {}".format(cached_file))
+        torch.save(res, cached_file)
+    return res
 
 
-def train(args, train_dataset, valid_dataset, model):
+def create_train_data_loader(args, train_examples, model):
+    if args.neg_sampling == 'random':
+        dataset = DatasetCreater.random_balanced_tuples(train_examples)
+    elif args.neg_sampling == 'online':
+        pass
+    elif args.neg_sampling == 'offline':
+        pass
+    sampler = RandomSampler(dataset)
+    return DataLoader(dataset, sampler=sampler, batch_size=args.train_batch_size)
+
+
+def create_retrival_data_loader(examples):
+    pos_features, neg_features = [], []
+    NL_index, PL_index, rel = examples["NL_index"], examples['PL_index'], examples['rel']
+    for nl_cnt, nl_id in enumerate(NL_index):
+        for pl_id in PL_index:
+            if pl_id in rel[nl_id]:
+                pos_features.append((NL_index[nl_id], PL_index[pl_id], 1))
+            else:
+                neg_features.append((NL_index[nl_id], PL_index[pl_id], 0))
+
+
+def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
-    train_sampler = RandomSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size,
-                                  drop_last=True)
-
+    epoch_example_num = 2 * len(train_examples)
+    # we use only balanced dataset, thus half pos(from trian examples) and half neg (create based on neg_sampling)
     if args.max_steps > 0:
         t_total = args.max_steps
-        args.num_train_epochs = args.max_steps // (len(train_dataloader) // args.gradient_accumulation_steps) + 1
+        args.num_train_epochs = args.max_steps // (epoch_example_num // args.gradient_accumulation_steps) + 1
     else:
-        t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
+        t_total = epoch_example_num // args.gradient_accumulation_steps * args.num_train_epochs
 
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
@@ -109,7 +121,7 @@ def train(args, train_dataset, valid_dataset, model):
 
     # Train!
     logger.info("***** Running training *****")
-    logger.info("  Num examples = %d", len(train_dataset))
+    logger.info("  Num examples = %d", epoch_example_num)
     logger.info("  Num Epochs = %d", args.num_train_epochs)
     logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
     logger.info(
@@ -125,15 +137,15 @@ def train(args, train_dataset, valid_dataset, model):
     args.epochs_trained = 0
     args.steps_trained_in_current_epoch = 0
 
-    if os.path.exists(args.model_path):
+    if args.model_path and os.path.exists(args.model_path):
         ckpt = load_check_point(model, args.model_path, optimizer, scheduler)
         model, optimizer, scheduler, args = ckpt["model"], ckpt['optimizer'], ckpt['scheduler'], ckpt['args']
         logger.info("  Continuing training from checkpoint, will skip to saved global_step")
-        logger.info("  Continuing training from epoch {}".format(args.epochs_trained))
-        logger.info("  Continuing training from global step {}".format(args.global_step))
-        logger.info("  Will skip the first {} steps in the first epoch".format(args.steps_trained_in_current_epoch))
+        logger.info("  Continuing training from epoch {}, global step {}".format(args.epochs_trained, args.global_step))
     else:
         logger.info("Start a new training")
+
+    valid_dataset = DatasetCreater.random_balanced_tuples(valid_examples)
 
     tr_loss = 0.0
     tr_ac = 0.0
@@ -143,6 +155,7 @@ def train(args, train_dataset, valid_dataset, model):
     )
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
+        train_dataloader = create_train_data_loader(args, train_examples, model)
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
             if args.steps_trained_in_current_epoch > 0:
@@ -153,14 +166,16 @@ def train(args, train_dataset, valid_dataset, model):
             batch = tuple(t.to(args.device) for t in batch)
             inputs = {
                 "text_ids": batch[1],
-                "code_ids": batch[3],
-                "relation_label": batch[4]
+                "text_attention_mask": batch[2],
+                "code_ids": batch[4],
+                "code_attention_mask": batch[5],
+                "relation_label": batch[6]
             }
             outputs = model(**inputs)
             loss = outputs['loss']
             logit = outputs['logits']
             y_pred = logit.data.max(1)[1]
-            tr_ac += y_pred.eq(batch[4]).long().sum().item()
+            tr_ac += y_pred.eq(batch[6]).long().sum().item()
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -205,9 +220,9 @@ def train(args, train_dataset, valid_dataset, model):
 
                 if args.valid_step > 0 and args.global_step % args.valid_step == 0:
                     # step invoke validation
-                    if args.valid_num:
-                        valid_accuracy = evaluate(args, valid_dataset, model, args.valid_num)
-                        tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
+                    valid_accuracy = evaluate_classification(args, valid_dataset, model)
+                    evaluate_retrival(args, valid_examples, model)
+                    tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
 
             if args.max_steps > 0 and args.global_step > args.max_steps:
                 epoch_iterator.close()
@@ -225,10 +240,41 @@ def train(args, train_dataset, valid_dataset, model):
     return args.global_step, tr_loss
 
 
-def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
+def evaluate_retrival(args, examples, model: TBert):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    # eval_sampler = SequentialSampler(dataset)
-    eval_sampler = RandomSampler(dataset, replacement=True, num_samples=eval_num)
+    dataset = DatasetCreater.all_tuples(examples, model)  # state of hidden state
+    eval_sampler = RandomSampler(dataset, replacement=True)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+
+    res_file = "./retrieval_res.csv"
+    logger.info("***** Running evaluation *****")
+    res = []
+    for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        model.eval()
+        batch = tuple(t.to(args.device) for t in batch)
+        with torch.no_grad():
+            inputs = {
+                "text_hidden": batch[0],
+                "code_hidden": batch[1],
+            }
+            label = batch[2]
+            outputs = model.cls(**inputs)
+            pred = torch.softmax(outputs, 1).data.tolist()
+            for n, p, prd, lb in zip(pred, label.tolist()):
+                res.append((n, p, prd[1], lb))
+        df = pd.DataFrame()
+        df['s_id'] = [x[0] for x in res]
+        df['t_id'] = [x[1] for x in res]
+        df['pred'] = [x[2] for x in res]
+        df['label'] = [x[3] for x in res]
+        df.to_csv(res_file)
+        best_accuracy(df, threshold_interval=1)
+
+
+def evaluate_classification(args, dataset, model):
+    args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
+
+    eval_sampler = RandomSampler(dataset, replacement=True)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
     # multi-gpu evaluate
@@ -236,35 +282,34 @@ def evaluate(args, dataset, model, eval_num, prefix="", print_detail=True):
         model = torch.nn.DataParallel(model)
 
     # Eval!
-    logger.info("***** Running evaluation {} *****".format(prefix))
-    if print_detail:
-        logger.info("  Num examples = %d", len(dataset))
-        logger.info("  Batch size = %d", args.eval_batch_size)
-
+    logger.info("***** Running evaluation *****")
     num_correct = 0
+    eval_num = 0
+
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
         with torch.no_grad():
             inputs = {
                 "text_ids": batch[1],
-                "code_ids": batch[3],
+                "text_attention_mask": batch[2],
+                "code_ids": batch[4],
+                "code_attention_mask": batch[5],
             }
-            label = batch[4]
+            label = batch[6]
             outputs = model(**inputs)
             logit = outputs['logits']
             y_pred = logit.data.max(1)[1]
             batch_correct = y_pred.eq(label).long().sum().item()
             num_correct += batch_correct
-            if print_detail:
-                tqdm.write(
-                    "pre:{},label:{},correct_num:{}".format(y_pred.data.tolist(), label.data.tolist(), batch_correct))
+            eval_num += y_pred.size()
+
     accuracy = num_correct / eval_num
     tqdm.write("evaluate accuracy={}".format(accuracy))
     return accuracy
 
 
-def evaluate_checkpoint(checkpoint, eval_dataset, args, eval_num):
+def evaluate_checkpoint(checkpoint, eval_dataset, args):
     """
 
     :param checkpoint:  path to checkpiont directory
@@ -277,8 +322,7 @@ def evaluate_checkpoint(checkpoint, eval_dataset, args, eval_num):
     model.load_state_dict(torch.load(os.path.join(checkpoint, MODEL_FNAME)))
     model.to(args.device)
 
-    eval_num = len(eval_dataset) if not eval_num else eval_num
-    result = evaluate(args, eval_dataset, model, eval_num)
+    result = evaluate_classification(args, eval_dataset, model)
     return result
 
 
@@ -296,6 +340,9 @@ def main():
                         help="number of instances used for evaluating the checkpoint performance")
     parser.add_argument("--valid_step", type=int, default=50,
                         help="obtain validation accuracy every given steps")
+
+    parser.add_argument("--train_num", type=int, default=None,
+                        help="number of instances used for training")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
     parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
@@ -323,14 +370,14 @@ def main():
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
-    parser.add_argument("--resample_rate", default=1, type=int, help="Oversample rate for positive examples, "
-                                                                     "negative examples will match the number")
+    parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offlane'],
+                        help="Negative sampling strategy we apply for constructing dataset. ")
     parser.add_argument(
         "--fp16_opt_level",
         type=str,
         default="O1",
         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-        "See details at https://nvidia.github.io/apex/amp.html",
+             "See details at https://nvidia.github.io/apex/amp.html",
     )
     args = parser.parse_args()
 
@@ -386,16 +433,11 @@ def main():
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
-    valid_dataset = load_and_cache_examples(args.data_dir, "valid",
-                                            model.ntokenizer, model.ctokneizer,
-                                            is_training=True, num_limit=None, overwrite=args.overwrite)
-    # Training
-    # 3 tensors (all_NL_input_ids, all_PL_input_ids, labels)
-    train_dataset = load_and_cache_examples(args.data_dir, "train",
-                                            model.ntokenizer, model.ctokneizer,
-                                            is_training=True, num_limit=100, overwrite=args.overwrite,
-                                            resample_rate=args.resample_rate)
-    global_step, tr_loss = train(args, train_dataset, valid_dataset, model)
+    valid_examples = load_examples(args.data_dir, "valid", model.ntokenizer,
+                                   model.ctokneizer, num_limit=args.valid_num, overwrite=args.overwrite)
+    train_examples = load_examples(args.data_dir, "train", model.ntokenizer,
+                                   model.ctokneizer, num_limit=args.train_num, overwrite=args.overwrite)
+    global_step, tr_loss = train(args, valid_examples, train_examples, model)
     logger.info("Training finished with  global_step = {}, final loss = {}".format(global_step, tr_loss))
 
 
