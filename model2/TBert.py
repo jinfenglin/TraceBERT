@@ -117,20 +117,12 @@ class TBert(PreTrainedModel):
     def forward(
             self,
             code_ids=None,
-            # code_attention_mask=None,
+            code_attention_mask=None,
             text_ids=None,
-            # text_attention_mask=None,
+            text_attention_mask=None,
             relation_label=None):
-        n_outputs = self.nbert(text_ids)
-        c_outputs = self.cbert(code_ids)
-
-        c_hidden = c_outputs[0]
-        n_hidden = n_outputs[0]
-
-        # if code_attention_mask is None:
-        #     code_attention_mask = torch.ones(code_ids.size(), device=code_ids.device)
-        # if text_attention_mask is None:
-        #     text_attention_mask = torch.ones(text_ids.size(), device=text_ids.device)
+        c_hidden = self.create_nl_embed(text_ids, text_attention_mask)
+        n_hidden = self.create_pl_embed(code_ids, code_attention_mask)
 
         logits = self.cls(c_hidden, n_hidden)
         output_dict = {"logits": logits}
@@ -141,8 +133,11 @@ class TBert(PreTrainedModel):
             output_dict['loss'] = rel_loss
         return output_dict  # (rel_loss), rel_score
 
-    def create_embd(self, str, tokenizer):
-        return tokenizer.encode(str, return_tensors='pt', add_special_tokens=True)
+    def create_nl_embed(self, input_ids, attention_mask):
+        return self.nbert(input_ids, attention_mask=attention_mask)[0]
+
+    def create_pl_embed(self, input_ids, attention_mask):
+        return self.cbert(input_ids, attention_mask=attention_mask)[0]
 
 
 # debug
