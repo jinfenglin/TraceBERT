@@ -302,7 +302,7 @@ def evaluate_classification(args, dataset, model):
             y_pred = logit.data.max(1)[1]
             batch_correct = y_pred.eq(label).long().sum().item()
             num_correct += batch_correct
-            eval_num += y_pred.size()
+            eval_num += y_pred.size()[0]
 
     accuracy = num_correct / eval_num
     tqdm.write("evaluate accuracy={}".format(accuracy))

@@ -250,15 +250,15 @@ class DatasetCreater():
         NL_index, PL_index, rel = examples["NL_index"], examples['PL_index'], examples['rel']
         if model:
             model.eval()
-            with torch.no_grad:
+            with torch.no_grad():
                 for nl_id in NL_index:
                     nl_feature = NL_index[nl_id]
-                    NL_index[nl_id]['embd'] = model.create_nl_embed(nl_feature['input_id'],
+                    NL_index[nl_id]['embd'] = model.create_nl_embed(nl_feature['input_ids'],
                                                                     nl_feature['attention_mask'])
 
                 for pl_id in PL_index:
                     pl_feature = PL_index[pl_id]
-                    PL_index[pl_id]['embd'] = model.create_pl_embed(pl_feature['input_id'],
+                    PL_index[pl_id]['embd'] = model.create_pl_embed(pl_feature['input_ids'],
                                                                     pl_feature['attention_mask'])
 
         for nl_cnt, nl_id in enumerate(NL_index):
