@@ -121,8 +121,8 @@ class TBert(PreTrainedModel):
             text_ids=None,
             text_attention_mask=None,
             relation_label=None):
-        c_hidden = self.create_nl_embed(text_ids, text_attention_mask)
-        n_hidden = self.create_pl_embed(code_ids, code_attention_mask)
+        c_hidden = self.nbert(code_ids, attention_mask=code_attention_mask)[0]
+        n_hidden = self.cbert(text_ids, attention_mask=text_attention_mask)[0]
 
         logits = self.cls(c_hidden, n_hidden)
         output_dict = {"logits": logits}
@@ -134,10 +134,12 @@ class TBert(PreTrainedModel):
         return output_dict  # (rel_loss), rel_score
 
     def create_nl_embed(self, input_ids, attention_mask):
-        return self.nbert(input_ids, attention_mask=attention_mask)[0]
+        return self.nbert(torch.tensor(input_ids).view(-1, 1),
+                          torch.tensor(attention_mask).view(-1, 1))
 
     def create_pl_embed(self, input_ids, attention_mask):
-        return self.cbert(input_ids, attention_mask=attention_mask)[0]
+        return self.cbert(torch.tensor(input_ids).view(-1, 1),
+                          torch.tensor(attention_mask).view(-1, 1))
 
 
 # debug
