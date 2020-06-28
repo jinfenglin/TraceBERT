@@ -199,8 +199,8 @@ class DataConvert:
 
     @staticmethod
     def hidden_state_to_dataset(features):
-        all_NL_hidden = torch.tensor([f[0]['embd'] for f in features], dtype=torch.long)
-        all_PL_hidden = torch.tensor([f[1]['embd'] for f in features], dtype=torch.long)
+        all_NL_hidden = torch.stack([f[0]['embd'] for f in features])
+        all_PL_hidden = torch.stack([f[1]['embd'] for f in features])
         all_labels = torch.tensor([f[2] for f in features], dtype=torch.long)
         dataset = TensorDataset(all_NL_hidden, all_PL_hidden, all_labels)
         return dataset
@@ -253,13 +253,15 @@ class DatasetCreater():
             with torch.no_grad():
                 for nl_id in NL_index:
                     nl_feature = NL_index[nl_id]
-                    NL_index[nl_id]['embd'] = model.create_nl_embed(nl_feature['input_ids'],
-                                                                    nl_feature['attention_mask'])
+                    input_ids = torch.tensor(nl_feature['input_ids']).view(-1, 1).to(model.device)
+                    attention_mask = torch.tensor(nl_feature['attention_mask']).view(-1, 1).to(model.device)
+                    NL_index[nl_id]['embd'] = model.create_nl_embed(input_ids, attention_mask)[0].to('cpu')
 
                 for pl_id in PL_index:
                     pl_feature = PL_index[pl_id]
-                    PL_index[pl_id]['embd'] = model.create_pl_embed(pl_feature['input_ids'],
-                                                                    pl_feature['attention_mask'])
+                    input_ids = torch.tensor(pl_feature['input_ids']).view(-1, 1).to(model.device)
+                    attention_mask = torch.tensor(pl_feature['attention_mask']).view(-1, 1).to(model.device)
+                    PL_index[pl_id]['embd'] = model.create_pl_embed(input_ids, attention_mask)[0].to('cpu')
 
         for nl_cnt, nl_id in enumerate(NL_index):
             for pl_id in PL_index:

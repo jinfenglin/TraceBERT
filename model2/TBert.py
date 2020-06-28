@@ -134,12 +134,10 @@ class TBert(PreTrainedModel):
         return output_dict  # (rel_loss), rel_score
 
     def create_nl_embed(self, input_ids, attention_mask):
-        return self.nbert(torch.tensor(input_ids).view(-1, 1),
-                          torch.tensor(attention_mask).view(-1, 1))
+        return self.nbert(input_ids, attention_mask)
 
     def create_pl_embed(self, input_ids, attention_mask):
-        return self.cbert(torch.tensor(input_ids).view(-1, 1),
-                          torch.tensor(attention_mask).view(-1, 1))
+        return self.cbert(input_ids, attention_mask)
 
 
 # debug
