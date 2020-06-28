@@ -1,11 +1,15 @@
 import logging
 import os
 import random
-from typing import Dict, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import torch
 import pandas as pd
+from pandas import DataFrame
+from tqdm.gui import tqdm
+
+from common.data_structures import Examples
 
 MODEL_FNAME = "t_bert.pt"
 OPTIMIZER_FNAME = "optimizer.pt"
@@ -71,5 +75,42 @@ def exclude_and_sample(sample_pool, exclude, num):
     selected = random.sample(sample_pool, num)
     return selected
 
+
 def clean_space(text):
     return " ".join(text.split())
+
+
+def results_to_df(res: List[Tuple]) -> DataFrame:
+    df = pd.DataFrame()
+    df['s_id'] = [x[0] for x in res]
+    df['t_id'] = [x[1] for x in res]
+    df['pred'] = [x[2] for x in res]
+    df['label'] = [x[3] for x in res]
+    return df
+
+
+def evaluate_retrival(model, eval_examples: Examples, batch_size, res_file):
+    retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
+    res = []
+    for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
+        nl_ids = batch[0]
+        pl_ids = batch[1]
+        labels = batch[2]
+        nl_embd, pl_embd = eval_examples.create_retrival_batch(nl_ids, pl_ids)
+        model.eval()
+        with torch.no_grad():
+            nl_embd.to(model.device)
+            pl_embd.to(model.device)
+
+            logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
+            pred = torch.softmax(logits, 1).data.tolist()
+            for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
+                res.append((n, p, prd[1], lb))
+
+    df = results_to_df(res)
+    if res_file:
+        df.to_csv(res_file)
+    else:
+        logger.info("Skip saving retrival evaluation result")
+    best_accuracy(df, threshold_interval=1)
+    topN_RPF(df, 3)

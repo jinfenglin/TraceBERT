@@ -20,7 +20,7 @@ from tqdm import trange, tqdm
 from transformers import BertConfig, get_linear_schedule_with_warmup
 
 from common.utils import save_check_point, load_check_point, write_tensor_board, MODEL_FNAME, set_seed, \
-    exclude_and_sample
+    exclude_and_sample, evaluate_retrival
 from common.data_processing import CodeSearchNetReader, DataConvert, DatasetCreater
 from model2.TBert import TBert
 
@@ -222,7 +222,7 @@ def train(args, train_examples, valid_examples, model):
                 if args.valid_step > 0 and args.global_step % args.valid_step == 0:
                     # step invoke validation
                     valid_accuracy = evaluate_classification(args, valid_dataset, model)
-                    evaluate_retrival(args, valid_examples, model)
+                    evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size)
                     tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
 
             if args.max_steps > 0 and args.global_step > args.max_steps:
@@ -239,40 +239,6 @@ def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
         tb_writer.close()
     return args.global_step, tr_loss
-
-
-def evaluate_retrival(args, examples, model: TBert):
-    args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    # dataset = DatasetCreater.all_tuples(examples, model)  # state of hidden state
-    # eval_sampler = RandomSampler(dataset, replacement=True)
-    # eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
-    valid_examples = Examples(examples)
-    valid_examples.update_features(model)
-    valid_examples.update_embd(model)
-
-    res_file = "./retrieval_res.csv"
-    logger.info("***** Running evaluation *****")
-    res = []
-    for batch in tqdm(eval_dataloader, desc="Evaluating"):
-        model.eval()
-        batch = tuple(t.to(args.device) for t in batch)
-        with torch.no_grad():
-            inputs = {
-                "text_hidden": batch[0],
-                "code_hidden": batch[1],
-            }
-            label = batch[2]
-            outputs = model.cls(**inputs)
-            pred = torch.softmax(outputs, 1).data.tolist()
-            for n, p, prd, lb in zip(pred, label.tolist()):
-                res.append((n, p, prd[1], lb))
-        df = pd.DataFrame()
-        df['s_id'] = [x[0] for x in res]
-        df['t_id'] = [x[1] for x in res]
-        df['pred'] = [x[2] for x in res]
-        df['label'] = [x[3] for x in res]
-        df.to_csv(res_file)
-        best_accuracy(df, threshold_interval=1)
 
 
 def evaluate_classification(args, dataset, model):
