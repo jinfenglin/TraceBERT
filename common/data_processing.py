@@ -160,6 +160,7 @@ class DataConvert:
         rel_index = defaultdict(set)
         NL_index = dict()  # find instance by id
         PL_index = dict()
+
         nl_id = 0
         pl_id = 0
         for f in tqdm(features, desc="assign ids to examples"):

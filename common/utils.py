@@ -71,4 +71,5 @@ def exclude_and_sample(sample_pool, exclude, num):
     selected = random.sample(sample_pool, num)
     return selected
 
-
+def clean_space(text):
+    return " ".join(text.split())

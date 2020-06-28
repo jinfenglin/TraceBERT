@@ -6,6 +6,7 @@ import sys
 
 import pandas as pd
 
+from common.data_structures import Examples
 from model2.VSM_baseline.vsm_baseline import best_accuracy
 
 sys.path.append("..")
@@ -242,9 +243,12 @@ def train(args, train_examples, valid_examples, model):
 
 def evaluate_retrival(args, examples, model: TBert):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    dataset = DatasetCreater.all_tuples(examples, model)  # state of hidden state
-    eval_sampler = RandomSampler(dataset, replacement=True)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+    # dataset = DatasetCreater.all_tuples(examples, model)  # state of hidden state
+    # eval_sampler = RandomSampler(dataset, replacement=True)
+    # eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+    valid_examples = Examples(examples)
+    valid_examples.update_features(model)
+    valid_examples.update_embd(model)
 
     res_file = "./retrieval_res.csv"
     logger.info("***** Running evaluation *****")
