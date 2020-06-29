@@ -1,15 +1,19 @@
+import os
+
 import pandas as pd
 from pandas import DataFrame
 from sklearn.metrics import precision_recall_curve, PrecisionRecallDisplay
+import matplotlib.pyplot as plt
 
 
 class metrics:
-    def __init__(self, data_frame: DataFrame):
+    def __init__(self, data_frame: DataFrame, output_dir=None):
         """
         Evaluate the performance given datafrome with column "s_id", "t_id" "pred" and "label"
         :param data_frame:
         """
         self.data_frame = data_frame
+        self.output_dir = output_dir
         self.s_ids, self.t_ids = data_frame['s_id'], data_frame['t_id']
         self.pred, self.label = data_frame['pred'], data_frame['label']
         self.group_sort = None
@@ -17,7 +21,7 @@ class metrics:
     def f1_score(self, precision, recall):
         return 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0
 
-    def precision_recall_curve(self, output_path):
+    def precision_recall_curve(self, fig_name):
         precision, recall, thresholds = precision_recall_curve(self.label, self.pred)
         max_f1 = 0
         for p, r in zip(precision, recall):
@@ -25,7 +29,10 @@ class metrics:
             max_f1 = max(f1, max_f1)
         viz = PrecisionRecallDisplay(
             precision=precision, recall=recall)
-        fig = viz.plot().figure_
+        viz.plot()
+        if os.path.isfile(self.output_dir):
+            fig_path = os.path.join(self.output_dir, fig_name)
+            plt.savefig(fig_path)
         return round(max_f1, 3)
 
     def precision_at_K(self, k=1):
