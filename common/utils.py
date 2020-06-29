@@ -80,7 +80,7 @@ def load_check_point(model, ckpt_dir, optimizer, scheduler):
     model.load_state_dict(torch.load(model_path))
     optimizer.load_state_dict(torch.load(optmz_path))
     scheduler.load_state_dict(torch.load(sched_path))
-    args = torch.load(ARG_FNAME)
+    args = torch.load(os.path.join(ckpt_dir, ARG_FNAME))
     return {'model': model, "optimizer": optimizer, "scheduler": scheduler, "args": args}
 
 
