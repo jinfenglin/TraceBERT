@@ -30,7 +30,7 @@ class metrics:
         viz = PrecisionRecallDisplay(
             precision=precision, recall=recall)
         viz.plot()
-        if os.path.isfile(self.output_dir):
+        if os.path.isdir(self.output_dir):
             fig_path = os.path.join(self.output_dir, fig_name)
             plt.savefig(fig_path)
         return round(max_f1, 3)

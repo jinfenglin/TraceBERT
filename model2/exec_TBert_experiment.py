@@ -142,10 +142,10 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
                                                      "eval_retrive")
                 tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
-                tb_writer.add_scalar("precision@3", pk)
-                tb_writer.add_scalar("best_f1", best_f1)
-                tb_writer.add_scalar("MAP", map)
-
+                tb_writer.add_scalar("precision@3", pk, args.global_step)
+                tb_writer.add_scalar("best_f1", best_f1, args.global_step)
+                tb_writer.add_scalar("MAP", map, args.global_step)
+        args.steps_trained_in_current_epoch += 1
         if args.max_steps > 0 and args.global_step > args.max_steps:
             epoch_iterator.close()
             break
@@ -161,13 +161,13 @@ def train(args, train_examples, valid_examples, model):
         tb_writer = SummaryWriter()
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
-    epoch_example_num = 2 * len(train_examples)
-    # we use only balanced dataset, thus half pos(from trian examples) and half neg (create based on neg_sampling)
+    example_num = 2 * len(train_examples) # 50/50 of pos/neg
+    epoch_batch_num = example_num / args.train_batch_size
     if args.max_steps > 0:
         t_total = args.max_steps
-        args.num_train_epochs = args.max_steps // (epoch_example_num // args.gradient_accumulation_steps) + 1
+        args.num_train_epochs = args.max_steps // (epoch_batch_num // args.gradient_accumulation_steps) + 1
     else:
-        t_total = epoch_example_num // args.gradient_accumulation_steps * args.num_train_epochs
+        t_total = epoch_batch_num // args.gradient_accumulation_steps * args.num_train_epochs
 
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
@@ -200,7 +200,7 @@ def train(args, train_examples, valid_examples, model):
 
     # Train!
     logger.info("***** Running training *****")
-    logger.info("  Num examples = %d", epoch_example_num)
+    logger.info("  Num examples = %d", example_num)
     logger.info("  Num Epochs = %d", args.num_train_epochs)
     logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
     logger.info(
@@ -216,8 +216,6 @@ def train(args, train_examples, valid_examples, model):
     args.epochs_trained = 0
     args.steps_trained_in_current_epoch = 0
 
-    skip_n_steps_in_epoch = args.steps_trained_in_current_epoch  # in case we resume training
-
     if args.model_path and os.path.exists(args.model_path):
         ckpt = load_check_point(model, args.model_path, optimizer, scheduler)
         model, optimizer, scheduler, args = ckpt["model"], ckpt['optimizer'], ckpt['scheduler'], ckpt['args']
@@ -225,7 +223,7 @@ def train(args, train_examples, valid_examples, model):
         logger.info("  Continuing training from epoch {}, global step {}".format(args.epochs_trained, args.global_step))
     else:
         logger.info("Start a new training")
-
+    skip_n_steps_in_epoch = args.steps_trained_in_current_epoch  # in case we resume training
     model.zero_grad()
     train_iterator = trange(args.epochs_trained, int(args.num_train_epochs), desc="Epoch",
                             disable=args.local_rank not in [-1, 0])
@@ -366,8 +364,8 @@ def main():
                                    overwrite=args.overwrite)
     train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,
                                    overwrite=args.overwrite)
-    global_step, tr_loss = train(args, train_examples, valid_examples, model)
-    logger.info("Training finished with  global_step = {}, final loss = {}".format(global_step, tr_loss))
+    train(args, train_examples, valid_examples, model)
+    logger.info("Training finished")
 
 
 if __name__ == "__main__":

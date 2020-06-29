@@ -1,7 +1,6 @@
 python train_model.py \
 --data_dir ../model2/data/code_search_net/python \
 --output_dir ./output \
---model_path ./output \
 --per_gpu_train_batch_size 8 \
 --per_gpu_eval_batch_size  8 \
 --logging_steps 10 \
@@ -9,6 +8,6 @@ python train_model.py \
 --learning_rate 2e-5 \
 --valid_num 100 \
 --valid_step 100 \
---num_train_epochs 2 \
+--num_train_epochs 10 \
 --gradient_accumulation_steps 8 \
---resample_rate 5
+--neg_sampling random

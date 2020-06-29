@@ -5,7 +5,7 @@ from multiprocessing.pool import Pool
 from typing import List, Tuple
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
 from common.models import TwinBert
@@ -72,7 +72,7 @@ class Examples:
 
         nl_id_max = 0
         pl_id_max = 0
-        for r_exp in tqdm(raw_examples, desc="assign ids to examples"):
+        for r_exp in raw_examples:
             nl_tks = clean_space(r_exp["NL"])
             pl_tks = r_exp["PL"]
 
@@ -108,7 +108,7 @@ class Examples:
     def __update_feature_for_index(self, index, tokenizer, n_thread):
         with Pool(n_thread) as p:
             worker = partial(self._gen_feature, tokenizer=tokenizer)
-            features = list(tqdm(p.imap(worker, index.values(), chunksize=32), desc="Feature creation"))
+            features = list(tqdm(p.imap(worker, index.values(), chunksize=32), desc="update feature"))
             for f in features:
                 id = f[F_ID]
                 index[id][F_INPUT_ID] = f[F_INPUT_ID]
@@ -124,7 +124,7 @@ class Examples:
         self.__update_feature_for_index(self.PL_index, model.get_pl_tokenizer(), n_thread)
 
     def __update_embd_for_index(self, index, sub_model):
-        for id in tqdm(index, desc="creating embedding"):
+        for id in tqdm(index, desc="update embedding"):
             feature = index[id]
             input_tensor = torch.tensor(feature[F_INPUT_ID]).view(1, -1).to(sub_model.device)
             mask_tensor = torch.tensor(feature[F_ATTEN_MASK]).view(1, -1).to(sub_model.device)
@@ -180,7 +180,7 @@ class Examples:
 
     def random_neg_sampling_dataloader(self, batch_size):
         pos, neg = [], []
-        for nl_id in tqdm(self.rel_index, desc="creating dataset"):
+        for nl_id in self.rel_index:
             pos_pl_ids = self.rel_index[nl_id]
             for p_id in pos_pl_ids:
                 pos.append((nl_id, p_id, 1))
@@ -188,7 +188,8 @@ class Examples:
             sel_neg_ids = exclude_and_sample(list(self.PL_index.keys()), pos_pl_ids, sample_num)
             for n_id in sel_neg_ids:
                 neg.append((nl_id, n_id, 0))
-        dataset = DataLoader(pos + neg, batch_size=batch_size)
+        sampler = RandomSampler(pos + neg)
+        dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
         return dataset
 
     def offline_neg_sampling_dataloader(self, batch_size):
