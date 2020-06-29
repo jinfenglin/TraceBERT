@@ -68,9 +68,9 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
     tr_loss, tr_ac = 0, 0
     train_dataloader = None
     if args.neg_sampling == "random":
-        train_dataloader = train_examples.random_neg_sampling_dataloader()
+        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
     elif args.neg_sampling == "offlane":
-        train_dataloader = train_examples.offline_neg_sampling_dataloader()
+        train_dataloader = train_examples.offline_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
@@ -138,7 +138,7 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
             if args.valid_step > 0 and args.global_step % args.valid_step == 0:
                 # step invoke validation
                 valid_examples.update_embd(model)
-                valid_accuracy = evaluate_classification(valid_examples, model)
+                valid_accuracy = evaluate_classification(valid_examples, model, args.per_gpu_eval_batch_size)
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
                                                      "eval_retrive")
                 tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
