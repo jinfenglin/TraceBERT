@@ -1,3 +1,4 @@
+import random
 from collections import defaultdict
 from functools import partial
 from multiprocessing.pool import Pool
@@ -7,8 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from common.models import TBert, TwinBert
-from common.utils import clean_space
+from common.models import TwinBert
 from torch import Tensor
 
 # keywords for features
@@ -17,6 +17,18 @@ F_TOKEN = 'toknes'
 F_ATTEN_MASK = "attention_mask"
 F_INPUT_ID = "input_ids"
 F_EMBD = "embd"
+
+
+def exclude_and_sample(sample_pool, exclude, num):
+    """"""
+    for id in exclude:
+        sample_pool.remove(id)
+    selected = random.sample(sample_pool, num)
+    return selected
+
+
+def clean_space(text):
+    return " ".join(text.split())
 
 
 class Examples:
@@ -39,6 +51,9 @@ class Examples:
             return False
         rel_pls = set(self.rel_index[nl_id])
         return pl_id in rel_pls
+
+    def __len__(self):
+        return len(self.rel_index)
 
     def __index_exmaple(self, raw_examples):
         """
@@ -138,8 +153,8 @@ class Examples:
         dataset = DataLoader(res, batch_size=batch_size)
         return dataset
 
-    def create_retrival_batch(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) -> Tuple[Tensor, Tensor]:
-        """Convert a batch of (nl_id, pl_id,lable) into (nl_embd,pl_embd, label)"""
+    def id_pair_to_embd_pair(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) -> Tuple[Tensor, Tensor]:
+        """Convert id pairs into embdding pairs"""
         nl_embds, pl_embds = [], []
         for nl_id, pl_id in zip(nl_id_tensor.tolist(), pl_id_tensor.tolist()):
             nl_embds.append(self.NL_index[nl_id][F_EMBD])
@@ -147,3 +162,45 @@ class Examples:
         nl_tensor = torch.stack(nl_embds)
         pl_tensor = torch.stack(pl_embds)
         return nl_tensor, pl_tensor
+
+    def id_pair_to_feature_pair(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) \
+            -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        """Convert id pairs into embdding pairs"""
+        nl_input_ids, nl_attention_masks, pl_input_ids, pl_attention_masks = [], [], [], []
+        for nl_id, pl_id in zip(nl_id_tensor.tolist(), pl_id_tensor.tolist()):
+            nl_input_ids.append(torch.tensor(self.NL_index[nl_id][F_INPUT_ID]))
+            nl_attention_masks.append(torch.tensor(self.NL_index[nl_id][F_ATTEN_MASK]))
+            pl_input_ids.append(torch.tensor(self.PL_index[pl_id][F_INPUT_ID]))
+            pl_attention_masks.append(torch.tensor(self.PL_index[pl_id][F_ATTEN_MASK]))
+        nl_input_tensor = torch.stack(nl_input_ids)
+        nl_att_tensor = torch.stack(nl_attention_masks)
+        pl_input_tensor = torch.stack(pl_input_ids)
+        pl_att_tensor = torch.stack(pl_attention_masks)
+        return nl_input_tensor, nl_att_tensor, pl_input_tensor, pl_att_tensor
+
+    def random_neg_sampling_dataloader(self):
+        pos, neg = [], []
+        for nl_id in tqdm(self.rel_index, desc="creating dataset"):
+            pos_pl_ids = self.rel_index[nl_id]
+            for p_id in pos_pl_ids:
+                pos.append((nl_id, p_id, 1))
+            sample_num = len(pos_pl_ids)
+            sel_neg_ids = exclude_and_sample(list(self.PL_index.keys()), pos_pl_ids, sample_num)
+            for n_id in sel_neg_ids:
+                neg.append((nl_id, n_id, 0))
+        dataset = DataLoader(pos + neg)
+        return dataset
+
+    def offline_neg_sampling_dataloader(self):
+        pass
+
+    def online_neg_sampling_dataloader(self):
+        pass
+
+    def make_online_neg_sampling_batch(self, batch: Tensor):
+        """
+
+        :param batch:
+        :return:
+        """
+        pass

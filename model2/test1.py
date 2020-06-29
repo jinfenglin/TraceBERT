@@ -48,7 +48,7 @@ def eval_retrival(model, eval_examples: Examples, batch_size, res_file):
         nl_ids = batch[0]
         pl_ids = batch[1]
         labels = batch[2]
-        nl_embd, pl_embd = eval_examples.create_retrival_batch(nl_ids, pl_ids)
+        nl_embd, pl_embd = eval_examples.id_pair_to_embd_pair(nl_ids, pl_ids)
         model.eval()
         with torch.no_grad():
             nl_embd.to(model.device)

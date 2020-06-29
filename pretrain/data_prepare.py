@@ -1,6 +1,5 @@
 # https://huggingface.co/blog/how-to-train
 import os
-import shutil
 from pathlib import Path
 from zipfile import ZipFile
 

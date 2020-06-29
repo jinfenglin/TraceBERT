@@ -1,3 +1,4 @@
+import pandas as pd
 from pandas import DataFrame
 from sklearn.metrics import precision_recall_curve, PrecisionRecallDisplay
 
@@ -25,35 +26,50 @@ class metrics:
         viz = PrecisionRecallDisplay(
             precision=precision, recall=recall)
         fig = viz.plot().figure_
-        if output_path:
-            fig.saveifg(output_path)
-        return max_f1
+        return round(max_f1, 3)
 
     def precision_at_K(self, k=1):
-        if not self.group_sort:
+        if self.group_sort is None:
             self.group_sort = self.data_frame.groupby(["s_id"]).apply(
-                lambda x: x.sort_values(["pred"], ascending=False))
-        group_tops = self.group_sort.head(k)
-        g_cnt = 0
-        pos_cnt = 0
-        for name, group in group_tops:
-            g_cnt += 1
-            for index, row in group:
-                hits = [x for x in row['label'] if x == 1]
-                pos_cnt += hits
-        return pos_cnt / g_cnt * k if g_cnt > 0 else 0
+                lambda x: x.sort_values(["pred"], ascending=False)).reset_index(drop=True)
+        group_tops = self.group_sort.groupby('s_id')
+        cnt = 0
+        hits = 0
+        for s_id, group in group_tops:
+            for index, row in group.head(k).iterrows():
+                hits += 1 if row['label'] == 1 else 0
+                cnt += 1
+        return round(hits / cnt if cnt > 0 else 0, 3)
 
     def MAP_at_K(self, k=1):
-        if not self.group_sort:
+        if self.group_sort is None:
             self.group_sort = self.data_frame.groupby(["s_id"]).apply(
-                lambda x: x.sort_values(["pred"], ascending=False))
-        group_tops = self.group_sort.head(k)
+                lambda x: x.sort_values(["pred"], ascending=False)).reset_index(drop=True)
+        group_tops = self.group_sort.groupby('s_id')
         ap_sum = 0
-        for name, group in group_tops:
-            precisions = []
-            for index, row in group:
-                precisions = [x / (i + 1) for i, x in enumerate(row['label']) if x == 1]
-            ap = sum(precisions) / len(precisions) if len(precisions) > 0 else 0
+        for s_id, group in group_tops:
+            group_hits = 0
+            ap = 0
+            for i, (index, row) in enumerate(group.head(k).iterrows()):
+                if row['label'] == 1:
+                    group_hits += 1
+                    ap += group_hits / (i + 1)
+            ap = ap / group_hits if group_hits > 0 else 0
             ap_sum += ap
-        map = ap_sum / len(group_tops)
-        return map
+        map = ap_sum / len(group_tops) if len(group_tops) > 0 else 0
+        return round(map, 3)
+
+
+if __name__ == "__main__":
+    test = [
+        (1, 1, 0.8, 1),
+        (1, 2, 0.3, 0),
+        (2, 1, 0.9, 1),
+        (2, 1, 0, 0),
+        (3, 1, 0.5, 0)
+    ]
+    df = pd.DataFrame(test, columns=['s_id', 't_id', 'pred', 'label'])
+    m = metrics(df)
+    m.precision_recall_curve('test.png')
+    print(m.precision_at_K(2))
+    print(m.MAP_at_K(2))

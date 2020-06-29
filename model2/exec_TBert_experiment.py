@@ -1,33 +1,29 @@
 import argparse
 import logging
-import multiprocessing
 import os
 import sys
 
-import pandas as pd
-
 from common.data_structures import Examples
-from model2.VSM_baseline.vsm_baseline import best_accuracy
+from common.models import TwinBert, TBert
 
 sys.path.append("..")
 sys.path.append("../common")
 
 import torch
 from torch.optim import AdamW
-from torch.utils.data import RandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
 from transformers import BertConfig, get_linear_schedule_with_warmup
 
-from common.utils import save_check_point, load_check_point, write_tensor_board, MODEL_FNAME, set_seed, \
-    exclude_and_sample, evaluate_retrival
-from common.data_processing import CodeSearchNetReader, DataConvert, DatasetCreater
-from model2.TBert import TBert
+from common.utils import save_check_point, load_check_point, write_tensor_board, set_seed, evaluate_retrival, \
+    evaluate_classification, format_batch_input
+from common.data_processing import CodeSearchNetReader
+
 
 logger = logging.getLogger(__name__)
 
 
-def load_examples(data_dir, data_type, ntokenizer, ctokenzier, overwrite=False, num_limit=None):
+def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_limit=None):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
@@ -44,38 +40,119 @@ def load_examples(data_dir, data_type, ntokenizer, ctokenzier, overwrite=False, 
     cached_file = os.path.join(cache_dir, "cached_{}.dat".format(data_type))
     if os.path.exists(cached_file) and not overwrite:
         logger.info("Loading examples from cached file {}".format(cached_file))
-        res = torch.load(cached_file)
+        examples = torch.load(cached_file)
     else:
         logger.info("Creating examples from dataset file at {}".format(data_dir))
         csn_reader = CodeSearchNetReader(data_dir)
-        examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
-        NL_index, PL_index, rel_index = DataConvert.index_exmaple_vecs(examples, ntokenizer, ctokenzier)
-        res = {"NL_index": NL_index, "PL_index": PL_index, "rel": rel_index}
+        raw_examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
+        examples = Examples(raw_examples)
+        examples.update_features(model)
         logger.info("Saving processed examples into cached file {}".format(cached_file))
-        torch.save(res, cached_file)
-    return res
+        torch.save(examples, cached_file)
+    return examples
 
 
-def create_train_data_loader(args, train_examples, model):
-    if args.neg_sampling == 'random':
-        dataset = DatasetCreater.random_balanced_tuples(train_examples)
-    elif args.neg_sampling == 'online':
-        pass
-    elif args.neg_sampling == 'offline':
-        pass
-    sampler = RandomSampler(dataset)
-    return DataLoader(dataset, sampler=sampler, batch_size=args.train_batch_size)
+def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
+                                      scheduler,
+                                      tb_writer, step_bar):
+    """
+    Create training dataset at epoch level.
+    :param args:
+    :param model:
+    :param train_examples:
+    :param valid_examples:
+    :param optimizer:
+    :param scheduler:
+    :param tb_writer:
+    :param step_bar:
+    :return:
+    """
+    tr_loss, tr_ac = 0, 0
+    train_dataloader = None
+    if args.neg_sampling == "random":
+        train_dataloader = train_examples.random_neg_sampling_dataloader()
+    elif args.neg_sampling == "offlane":
+        train_dataloader = train_examples.offline_neg_sampling_dataloader()
+    else:
+        raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
+    epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
+    for step, batch in enumerate(epoch_iterator):
+        if args.steps_trained_in_current_epoch > 0:
+            args.steps_trained_in_current_epoch -= 1
+            continue
 
-def create_retrival_data_loader(examples):
-    pos_features, neg_features = [], []
-    NL_index, PL_index, rel = examples["NL_index"], examples['PL_index'], examples['rel']
-    for nl_cnt, nl_id in enumerate(NL_index):
-        for pl_id in PL_index:
-            if pl_id in rel[nl_id]:
-                pos_features.append((NL_index[nl_id], PL_index[pl_id], 1))
+        model.train()
+        labels = batch[2].to(model.device)
+        inputs = format_batch_input(batch, train_examples, model)
+        inputs['relation_label'] = labels
+        outputs = model(**inputs)
+        loss = outputs['loss']
+        logit = outputs['logits']
+        y_pred = logit.data.max(1)[1]
+        tr_ac += y_pred.eq(labels).long().sum().item()
+
+        if args.n_gpu > 1:
+            loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
+        if args.gradient_accumulation_steps > 1:
+            loss = loss / args.gradient_accumulation_steps
+
+        if args.fp16:
+            try:
+                from apex import amp
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            except ImportError:
+                raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+        else:
+            loss.backward()
+
+        tr_loss += loss.item()
+
+        if (step + 1) % args.gradient_accumulation_steps == 0:
+            if args.fp16:
+                torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
             else:
-                neg_features.append((NL_index[nl_id], PL_index[pl_id], 0))
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+
+            optimizer.step()
+            scheduler.step()
+            model.zero_grad()
+            args.global_step += 1
+            step_bar.update(1)
+
+            if args.local_rank in [-1, 0] and args.logging_steps > 0 and args.global_step % args.logging_steps == 0:
+                tb_data = {
+                    'lr': scheduler.get_last_lr()[0],
+                    'acc': tr_ac / args.logging_steps / (
+                            args.train_batch_size * args.gradient_accumulation_steps),
+                    'loss': tr_loss / args.logging_steps
+                }
+                write_tensor_board(tb_writer, tb_data, args.global_step)
+                tr_loss = 0.0
+                tr_ac = 0.0
+
+            # Save model checkpoint
+            if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
+                # step invoke checkpoint writing
+                ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
+                save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
+
+            if args.valid_step > 0 and args.global_step % args.valid_step == 0:
+                # step invoke validation
+                valid_examples.update_embd(model)
+                valid_accuracy = evaluate_classification(valid_examples, model)
+                evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size, "retrival_task.csv")
+                tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
+
+        if args.max_steps > 0 and args.global_step > args.max_steps:
+            epoch_iterator.close()
+            break
+
+
+def train_with_batch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
+                                      scheduler, tb_writer, step_bar):
+    pass
 
 
 def train(args, train_examples, valid_examples, model):
@@ -146,88 +223,17 @@ def train(args, train_examples, valid_examples, model):
     else:
         logger.info("Start a new training")
 
-    valid_dataset = DatasetCreater.random_balanced_tuples(valid_examples)
-
-    tr_loss = 0.0
-    tr_ac = 0.0
     model.zero_grad()
-    train_iterator = trange(
-        args.epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
-    )
+    train_iterator = trange(args.epochs_trained, int(args.num_train_epochs), desc="Epoch",
+                            disable=args.local_rank not in [-1, 0])
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
-        train_dataloader = create_train_data_loader(args, train_examples, model)
-        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
-        for step, batch in enumerate(epoch_iterator):
-            if args.steps_trained_in_current_epoch > 0:
-                args.steps_trained_in_current_epoch -= 1
-                continue
+        params = (args, model, train_examples, valid_examples, optimizer, scheduler, tb_writer, step_bar)
+        if args.neg_sampling == 'random' or args.neg_sampling == 'offline':
+            train_with_epoch_lvl_neg_sampling(*params)
+        elif args.neg_sampling == 'online':
+            train_with_batch_lvl_neg_sampling(*params)
 
-            model.train()
-            batch = tuple(t.to(args.device) for t in batch)
-            inputs = {
-                "text_ids": batch[1],
-                "text_attention_mask": batch[2],
-                "code_ids": batch[4],
-                "code_attention_mask": batch[5],
-                "relation_label": batch[6]
-            }
-            outputs = model(**inputs)
-            loss = outputs['loss']
-            logit = outputs['logits']
-            y_pred = logit.data.max(1)[1]
-            tr_ac += y_pred.eq(batch[6]).long().sum().item()
-
-            if args.n_gpu > 1:
-                loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
-            if args.gradient_accumulation_steps > 1:
-                loss = loss / args.gradient_accumulation_steps
-
-            if args.fp16:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                loss.backward()
-            tr_loss += loss.item()
-
-            if (step + 1) % args.gradient_accumulation_steps == 0:
-                if args.fp16:
-                    torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
-                else:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-
-                optimizer.step()
-                scheduler.step()
-                model.zero_grad()
-                args.global_step += 1
-                step_bar.update(1)
-
-                if args.local_rank in [-1, 0] and args.logging_steps > 0 and args.global_step % args.logging_steps == 0:
-                    tb_data = {
-                        'lr': scheduler.get_last_lr()[0],
-                        'acc': tr_ac / args.logging_steps / (
-                                args.train_batch_size * args.gradient_accumulation_steps),
-                        'loss': tr_loss / args.logging_steps
-                    }
-                    write_tensor_board(tb_writer, tb_data, args.global_step)
-                    tr_loss = 0.0
-                    tr_ac = 0.0
-
-                # Save model checkpoint
-                if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
-                    # step invoke checkpoint writing
-                    ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
-                    save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
-
-                if args.valid_step > 0 and args.global_step % args.valid_step == 0:
-                    # step invoke validation
-                    valid_accuracy = evaluate_classification(args, valid_dataset, model)
-                    evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size)
-                    tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
-
-            if args.max_steps > 0 and args.global_step > args.max_steps:
-                epoch_iterator.close()
-                break
         if args.max_steps > 0 and args.global_step > args.max_steps:
             train_iterator.close()
             break
@@ -238,62 +244,6 @@ def train(args, train_examples, valid_examples, model):
 
     if args.local_rank in [-1, 0]:
         tb_writer.close()
-    return args.global_step, tr_loss
-
-
-def evaluate_classification(args, dataset, model):
-    args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-
-    eval_sampler = RandomSampler(dataset, replacement=True)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
-
-    # multi-gpu evaluate
-    if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
-        model = torch.nn.DataParallel(model)
-
-    # Eval!
-    logger.info("***** Running evaluation *****")
-    num_correct = 0
-    eval_num = 0
-
-    for batch in tqdm(eval_dataloader, desc="Evaluating"):
-        model.eval()
-        batch = tuple(t.to(args.device) for t in batch)
-        with torch.no_grad():
-            inputs = {
-                "text_ids": batch[1],
-                "text_attention_mask": batch[2],
-                "code_ids": batch[4],
-                "code_attention_mask": batch[5],
-            }
-            label = batch[6]
-            outputs = model(**inputs)
-            logit = outputs['logits']
-            y_pred = logit.data.max(1)[1]
-            batch_correct = y_pred.eq(label).long().sum().item()
-            num_correct += batch_correct
-            eval_num += y_pred.size()[0]
-
-    accuracy = num_correct / eval_num
-    tqdm.write("evaluate accuracy={}".format(accuracy))
-    return accuracy
-
-
-def evaluate_checkpoint(checkpoint, eval_dataset, args):
-    """
-
-    :param checkpoint:  path to checkpiont directory
-    :param args:
-    :param num_limit: size of valid dataset that will attend evaluation
-    :return:
-    """
-    # model = torch.load(os.path.join(checkpoint, 't_bert.pt'))
-    model = TBert(BertConfig())
-    model.load_state_dict(torch.load(os.path.join(checkpoint, MODEL_FNAME)))
-    model.to(args.device)
-
-    result = evaluate_classification(args, eval_dataset, model)
-    return result
 
 
 def main():
@@ -403,11 +353,11 @@ def main():
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
-    valid_examples = load_examples(args.data_dir, "valid", model.ntokenizer,
-                                   model.ctokneizer, num_limit=args.valid_num, overwrite=args.overwrite)
-    train_examples = load_examples(args.data_dir, "train", model.ntokenizer,
-                                   model.ctokneizer, num_limit=args.train_num, overwrite=args.overwrite)
-    global_step, tr_loss = train(args, valid_examples, train_examples, model)
+    valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,
+                                   overwrite=args.overwrite)
+    train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,
+                                   overwrite=args.overwrite)
+    global_step, tr_loss = train(args, train_examples, valid_examples, model)
     logger.info("Training finished with  global_step = {}, final loss = {}".format(global_step, tr_loss))
 
 

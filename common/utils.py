@@ -10,6 +10,8 @@ from pandas import DataFrame
 from tqdm.gui import tqdm
 
 from common.data_structures import Examples
+from common.metrices import metrics
+from common.models import TwinBert
 
 MODEL_FNAME = "t_bert.pt"
 OPTIMIZER_FNAME = "optimizer.pt"
@@ -17,6 +19,20 @@ SCHED_FNAME = "scheduler.pt"
 ARG_FNAME = "training_args.bin"
 
 logger = logging.getLogger(__name__)
+
+
+def format_batch_input(batch, examples, model):
+    nl_ids, pl_ids, labels = batch[0], batch[1], batch[2]
+    features = examples.id_pair_to_feature_pair(nl_ids, pl_ids)
+    features = [t.to(model.device) for t in features]
+    nl_in, nl_att, pl_in, pl_att = features
+    inputs = {
+        "text_ids": nl_in,
+        "text_attention_mask": nl_att,
+        "code_ids": pl_in,
+        "code_attention_mask": pl_att,
+    }
+    return inputs
 
 
 def write_tensor_board(tb_writer, data, step):
@@ -68,18 +84,6 @@ def load_check_point(model, ckpt_dir, optimizer, scheduler):
     return {'model': model, "optimizer": optimizer, "scheduler": scheduler, "args": args}
 
 
-def exclude_and_sample(sample_pool, exclude, num):
-    """"""
-    for id in exclude:
-        sample_pool.remove(id)
-    selected = random.sample(sample_pool, num)
-    return selected
-
-
-def clean_space(text):
-    return " ".join(text.split())
-
-
 def results_to_df(res: List[Tuple]) -> DataFrame:
     df = pd.DataFrame()
     df['s_id'] = [x[0] for x in res]
@@ -89,6 +93,35 @@ def results_to_df(res: List[Tuple]) -> DataFrame:
     return df
 
 
+def evaluate_classification(eval_examples: Examples, model: TwinBert):
+    eval_dataloader = eval_examples.random_neg_sampling_dataloader()
+
+    # multi-gpu evaluate
+    # if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
+    #     model = torch.nn.DataParallel(model)
+
+    # Eval!
+    logger.info("***** Running evaluation *****")
+    num_correct = 0
+    eval_num = 0
+
+    for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        model.eval()
+        inputs = format_batch_input(batch, eval_examples, model)
+        with torch.no_grad():
+            label = batch[2].to(model.device)
+            outputs = model(**inputs)
+            logit = outputs['logits']
+            y_pred = logit.data.max(1)[1]
+            batch_correct = y_pred.eq(label).long().sum().item()
+            num_correct += batch_correct
+            eval_num += y_pred.size()[0]
+
+    accuracy = num_correct / eval_num
+    tqdm.write("evaluate accuracy={}".format(accuracy))
+    return accuracy
+
+
 def evaluate_retrival(model, eval_examples: Examples, batch_size, res_file):
     retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
     res = []
@@ -96,7 +129,7 @@ def evaluate_retrival(model, eval_examples: Examples, batch_size, res_file):
         nl_ids = batch[0]
         pl_ids = batch[1]
         labels = batch[2]
-        nl_embd, pl_embd = eval_examples.create_retrival_batch(nl_ids, pl_ids)
+        nl_embd, pl_embd = eval_examples.id_pair_to_embd_pair(nl_ids, pl_ids)
         model.eval()
         with torch.no_grad():
             nl_embd.to(model.device)
@@ -112,5 +145,9 @@ def evaluate_retrival(model, eval_examples: Examples, batch_size, res_file):
         df.to_csv(res_file)
     else:
         logger.info("Skip saving retrival evaluation result")
-    best_accuracy(df, threshold_interval=1)
-    topN_RPF(df, 3)
+    m = metrics(df)
+
+    pk = m.precision_at_K(3)
+    best_f1 = m.precision_recall_curve("pr_curve.png")
+    map = m.MAP_at_K(3)
+    logger.info("precision@3={}, best_f1 = {}, MAP={}".format(pk, best_f1, map))
