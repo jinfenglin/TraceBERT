@@ -1,10 +1,8 @@
 import argparse
 import logging
+import multiprocessing
 import os
 import sys
-
-from common.data_structures import Examples
-from common.models import TwinBert, TBert
 
 sys.path.append("..")
 sys.path.append("../common")
@@ -18,6 +16,8 @@ from transformers import BertConfig, get_linear_schedule_with_warmup
 from common.utils import save_check_point, load_check_point, write_tensor_board, set_seed, evaluate_retrival, \
     evaluate_classification, format_batch_input
 from common.data_processing import CodeSearchNetReader
+from common.data_structures import Examples
+from common.models import TwinBert, TBert
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_lim
         csn_reader = CodeSearchNetReader(data_dir)
         raw_examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
         examples = Examples(raw_examples)
-        examples.update_features(model)
+        examples.update_features(model, multiprocessing.cpu_count())
         logger.info("Saving processed examples into cached file {}".format(cached_file))
         torch.save(examples, cached_file)
     return examples
@@ -161,7 +161,7 @@ def train(args, train_examples, valid_examples, model):
         tb_writer = SummaryWriter()
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
-    example_num = 2 * len(train_examples) # 50/50 of pos/neg
+    example_num = 2 * len(train_examples)  # 50/50 of pos/neg
     epoch_batch_num = example_num / args.train_batch_size
     if args.max_steps > 0:
         t_total = args.max_steps

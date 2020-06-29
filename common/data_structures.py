@@ -106,13 +106,19 @@ class Examples:
         return res
 
     def __update_feature_for_index(self, index, tokenizer, n_thread):
-        with Pool(n_thread) as p:
-            worker = partial(self._gen_feature, tokenizer=tokenizer)
-            features = list(tqdm(p.imap(worker, index.values(), chunksize=32), desc="update feature"))
-            for f in features:
-                id = f[F_ID]
-                index[id][F_INPUT_ID] = f[F_INPUT_ID]
-                index[id][F_ATTEN_MASK] = f[F_ATTEN_MASK]
+        for v in tqdm(index.values(), desc="update feature"):
+            f = self._gen_feature(v,tokenizer)
+            id = f[F_ID]
+            index[id][F_INPUT_ID] = f[F_INPUT_ID]
+            index[id][F_ATTEN_MASK] = f[F_ATTEN_MASK]
+        # with Pool(n_thread) as p:
+            # worker = partial(self._gen_feature, tokenizer=tokenizer)
+            # features = list(tqdm(p.imap(worker, index.values(), chunksize=32), desc="update feature"))
+            # for f in features:
+            #     id = f[F_ID]
+            #     index[id][F_INPUT_ID] = f[F_INPUT_ID]
+            #     index[id][F_ATTEN_MASK] = f[F_ATTEN_MASK]
+
 
     def update_features(self, model: TwinBert, n_thread=1):
         """

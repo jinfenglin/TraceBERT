@@ -7,9 +7,9 @@ python exec_TBert_experiment.py \
 --logging_steps 10 \
 --save_steps 10000 \
 --gradient_accumulation_steps 8 \
---num_train_epochs 5 \
+--num_train_epochs 20 \
 --learning_rate 4e-5 \
---valid_num 100 \
---valid_step 50 \
---resample_rate 20 \
+--valid_num 200 \
+--valid_step 100 \
+--neg_sampling random \
 --overwrite
