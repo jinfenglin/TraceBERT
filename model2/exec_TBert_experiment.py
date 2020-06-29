@@ -52,8 +52,7 @@ def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_lim
 
 
 def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
-                                      scheduler,
-                                      tb_writer, step_bar):
+                                      scheduler, tb_writer, step_bar, skip_n_steps):
     """
     Create training dataset at epoch level.
     :param args:
@@ -77,8 +76,8 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
 
     epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
     for step, batch in enumerate(epoch_iterator):
-        if args.steps_trained_in_current_epoch > 0:
-            args.steps_trained_in_current_epoch -= 1
+        if skip_n_steps > 0:
+            skip_n_steps -= 1
             continue
 
         model.train()
@@ -153,7 +152,7 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
 
 
 def train_with_batch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
-                                      scheduler, tb_writer, step_bar):
+                                      scheduler, tb_writer, step_bar, skip_n_steps):
     pass
 
 
@@ -217,6 +216,8 @@ def train(args, train_examples, valid_examples, model):
     args.epochs_trained = 0
     args.steps_trained_in_current_epoch = 0
 
+    skip_n_steps_in_epoch = args.steps_trained_in_current_epoch  # in case we resume training
+
     if args.model_path and os.path.exists(args.model_path):
         ckpt = load_check_point(model, args.model_path, optimizer, scheduler)
         model, optimizer, scheduler, args = ckpt["model"], ckpt['optimizer'], ckpt['scheduler'], ckpt['args']
@@ -230,11 +231,17 @@ def train(args, train_examples, valid_examples, model):
                             disable=args.local_rank not in [-1, 0])
     step_bar = tqdm(total=t_total, desc="Step progress")
     for _ in train_iterator:
-        params = (args, model, train_examples, valid_examples, optimizer, scheduler, tb_writer, step_bar)
+        params = (
+            args, model, train_examples, valid_examples, optimizer, scheduler, tb_writer, step_bar,
+            skip_n_steps_in_epoch)
         if args.neg_sampling == 'random' or args.neg_sampling == 'offline':
             train_with_epoch_lvl_neg_sampling(*params)
         elif args.neg_sampling == 'online':
             train_with_batch_lvl_neg_sampling(*params)
+
+        args.epochs_trained += 1
+        skip_n_steps_in_epoch = 0
+        args.steps_trained_in_current_epoch = 0
 
         if args.max_steps > 0 and args.global_step > args.max_steps:
             train_iterator.close()
