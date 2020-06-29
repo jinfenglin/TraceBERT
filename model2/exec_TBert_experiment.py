@@ -19,7 +19,6 @@ from common.utils import save_check_point, load_check_point, write_tensor_board,
     evaluate_classification, format_batch_input
 from common.data_processing import CodeSearchNetReader
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -106,7 +105,6 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         else:
             loss.backward()
-
         tr_loss += loss.item()
 
         if (step + 1) % args.gradient_accumulation_steps == 0:
@@ -142,8 +140,12 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 # step invoke validation
                 valid_examples.update_embd(model)
                 valid_accuracy = evaluate_classification(valid_examples, model)
-                evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size, "retrival_task.csv")
+                pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
+                                                     "eval_retrive")
                 tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
+                tb_writer.add_scalar("precision@3", pk)
+                tb_writer.add_scalar("best_f1", best_f1)
+                tb_writer.add_scalar("MAP", map)
 
         if args.max_steps > 0 and args.global_step > args.max_steps:
             epoch_iterator.close()

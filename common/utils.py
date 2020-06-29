@@ -122,7 +122,11 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert):
     return accuracy
 
 
-def evaluate_retrival(model, eval_examples: Examples, batch_size, res_file):
+def evaluate_retrival(model, eval_examples: Examples, batch_size, res_dir):
+    if not os.path.isdir(res_dir):
+        os.mkdir(res_dir)
+    retr_res_path = os.path.join(res_dir, "raw_result.csv")
+    summary_path = os.path.join(res_dir, "summary.txt")
     retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
     res = []
     for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
@@ -141,13 +145,15 @@ def evaluate_retrival(model, eval_examples: Examples, batch_size, res_file):
                 res.append((n, p, prd[1], lb))
 
     df = results_to_df(res)
-    if res_file:
-        df.to_csv(res_file)
-    else:
-        logger.info("Skip saving retrival evaluation result")
-    m = metrics(df)
+    df.to_csv(retr_res_path)
+    m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
     best_f1 = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
-    logger.info("precision@3={}, best_f1 = {}, MAP={}".format(pk, best_f1, map))
+
+    summary = "precision@3={}, best_f1 = {}, MAP={}".format(pk, best_f1, map)
+    tqdm.write(summary)
+    with open(summary_path, 'w') as fout:
+        fout.write(summary)
+    return pk, best_f1, map
