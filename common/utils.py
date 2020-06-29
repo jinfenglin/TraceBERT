@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import pandas as pd
 from pandas import DataFrame
-from tqdm.gui import tqdm
+from tqdm import tqdm
 
 from common.data_structures import Examples
 from common.metrices import metrics
