@@ -178,7 +178,7 @@ class Examples:
         pl_att_tensor = torch.stack(pl_attention_masks)
         return nl_input_tensor, nl_att_tensor, pl_input_tensor, pl_att_tensor
 
-    def random_neg_sampling_dataloader(self):
+    def random_neg_sampling_dataloader(self, batch_size):
         pos, neg = [], []
         for nl_id in tqdm(self.rel_index, desc="creating dataset"):
             pos_pl_ids = self.rel_index[nl_id]
@@ -188,13 +188,13 @@ class Examples:
             sel_neg_ids = exclude_and_sample(list(self.PL_index.keys()), pos_pl_ids, sample_num)
             for n_id in sel_neg_ids:
                 neg.append((nl_id, n_id, 0))
-        dataset = DataLoader(pos + neg)
+        dataset = DataLoader(pos + neg, batch_size=batch_size)
         return dataset
 
-    def offline_neg_sampling_dataloader(self):
+    def offline_neg_sampling_dataloader(self, batch_size):
         pass
 
-    def online_neg_sampling_dataloader(self):
+    def online_neg_sampling_dataloader(self, batch_size):
         pass
 
     def make_online_neg_sampling_batch(self, batch: Tensor):

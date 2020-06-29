@@ -93,8 +93,8 @@ def results_to_df(res: List[Tuple]) -> DataFrame:
     return df
 
 
-def evaluate_classification(eval_examples: Examples, model: TwinBert):
-    eval_dataloader = eval_examples.random_neg_sampling_dataloader()
+def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size):
+    eval_dataloader = eval_examples.random_neg_sampling_dataloader(batch_size=batch_size)
 
     # multi-gpu evaluate
     # if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
