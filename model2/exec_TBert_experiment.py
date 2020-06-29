@@ -140,7 +140,7 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 valid_examples.update_embd(model)
                 valid_accuracy = evaluate_classification(valid_examples, model, args.per_gpu_eval_batch_size)
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
-                                                     "eval_retrive")
+                                                     "evaluation/runtime_eval")
                 tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
                 tb_writer.add_scalar("precision@3", pk, args.global_step)
                 tb_writer.add_scalar("best_f1", best_f1, args.global_step)
