@@ -74,12 +74,13 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
-    epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
-    for step, batch in enumerate(epoch_iterator):
+    # epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
+    accum_bar = tqdm(total=args.gradient_accumulation_steps)
+    for step, batch in enumerate(train_dataloader):
         if skip_n_steps > 0:
             skip_n_steps -= 1
             continue
-
+        accum_bar.update()
         model.train()
         labels = batch[2].to(model.device)
         inputs = format_batch_input(batch, train_examples, model)
@@ -111,7 +112,7 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
             else:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-
+            accum_bar.refresh()
             optimizer.step()
             scheduler.step()
             model.zero_grad()
