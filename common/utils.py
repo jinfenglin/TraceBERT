@@ -93,7 +93,7 @@ def results_to_df(res: List[Tuple]) -> DataFrame:
     return df
 
 
-def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size):
+def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size, output_dir):
     eval_dataloader = eval_examples.random_neg_sampling_dataloader(batch_size=batch_size)
 
     # multi-gpu evaluate
@@ -101,11 +101,14 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
     #     model = torch.nn.DataParallel(model)
 
     # Eval!
-    logger.info("***** Running evaluation *****")
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+    res_file = os.path.join("classify_res.txt")
+    clsfy_res = []
     num_correct = 0
     eval_num = 0
 
-    for batch in tqdm(eval_dataloader, desc="Evaluating"):
+    for batch in tqdm(eval_dataloader, desc="Classify Evaluating"):
         model.eval()
         inputs = format_batch_input(batch, eval_examples, model)
         with torch.no_grad():
@@ -116,9 +119,14 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
             batch_correct = y_pred.eq(label).long().sum().item()
             num_correct += batch_correct
             eval_num += y_pred.size()[0]
+            clsfy_res.append((y_pred, label))
 
     accuracy = num_correct / eval_num
     tqdm.write("evaluate accuracy={}".format(accuracy))
+    if os.path.isfile(res_file):
+        with open(res_file, 'w') as fout:
+            for res in clsfy_res:
+                fout.write("pred:{}, label:{}, num_correct:{}".format(str(res[0]), str(res[1]), str(res[2])))
     return accuracy
 
 
@@ -149,11 +157,12 @@ def evaluate_retrival(model, eval_examples: Examples, batch_size, res_dir):
     m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
-    best_f1 = m.precision_recall_curve("pr_curve.png")
+    best_f1, details = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
     summary = "precision@3={}, best_f1 = {}, MAP={}".format(pk, best_f1, map)
     tqdm.write(summary)
     with open(summary_path, 'w') as fout:
         fout.write(summary)
+        fout.write(str(details))
     return pk, best_f1, map

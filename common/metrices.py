@@ -21,19 +21,45 @@ class metrics:
     def f1_score(self, precision, recall):
         return 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0
 
+    def f1_details(self, threshold):
+        "Return ture positive (tp), fp, tn,fn "
+        f_name = "f1_details"
+        tp, fp, tn, fn = 0, 0, 0, 0
+        for p, l in zip(self.pred, self.label):
+            if p > threshold:
+                p = 1
+            else:
+                p = 0
+            if p == l:
+                if l == 1:
+                    tp += 1
+                else:
+                    tn += 1
+            else:
+                if l == 1:
+                    fp += 1
+                else:
+                    fn += 1
+        return {"tp": tp, "fp": fp, "tn": tn, "fn": fn}
+
     def precision_recall_curve(self, fig_name):
         precision, recall, thresholds = precision_recall_curve(self.label, self.pred)
         max_f1 = 0
-        for p, r in zip(precision, recall):
+        max_threshold = 0
+        for p, r, tr in zip(precision, recall, thresholds):
             f1 = self.f1_score(p, r)
-            max_f1 = max(f1, max_f1)
+            if f1 >= max_f1:
+                max_f1 = f1
+                max_threshold = tr
         viz = PrecisionRecallDisplay(
             precision=precision, recall=recall)
         viz.plot()
         if os.path.isdir(self.output_dir):
             fig_path = os.path.join(self.output_dir, fig_name)
             plt.savefig(fig_path)
-        return round(max_f1, 3)
+            plt.close()
+        detail = self.f1_details(max_threshold)
+        return round(max_f1, 3), detail
 
     def precision_at_K(self, k=1):
         if self.group_sort is None:

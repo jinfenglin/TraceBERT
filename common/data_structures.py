@@ -107,18 +107,17 @@ class Examples:
 
     def __update_feature_for_index(self, index, tokenizer, n_thread):
         for v in tqdm(index.values(), desc="update feature"):
-            f = self._gen_feature(v,tokenizer)
+            f = self._gen_feature(v, tokenizer)
             id = f[F_ID]
             index[id][F_INPUT_ID] = f[F_INPUT_ID]
             index[id][F_ATTEN_MASK] = f[F_ATTEN_MASK]
         # with Pool(n_thread) as p:
-            # worker = partial(self._gen_feature, tokenizer=tokenizer)
-            # features = list(tqdm(p.imap(worker, index.values(), chunksize=32), desc="update feature"))
-            # for f in features:
-            #     id = f[F_ID]
-            #     index[id][F_INPUT_ID] = f[F_INPUT_ID]
-            #     index[id][F_ATTEN_MASK] = f[F_ATTEN_MASK]
-
+        # worker = partial(self._gen_feature, tokenizer=tokenizer)
+        # features = list(tqdm(p.imap(worker, index.values(), chunksize=32), desc="update feature"))
+        # for f in features:
+        #     id = f[F_ID]
+        #     index[id][F_INPUT_ID] = f[F_INPUT_ID]
+        #     index[id][F_ATTEN_MASK] = f[F_ATTEN_MASK]
 
     def update_features(self, model: TwinBert, n_thread=1):
         """
@@ -186,7 +185,7 @@ class Examples:
 
     def random_neg_sampling_dataloader(self, batch_size):
         pos, neg = [], []
-        for nl_id in self.rel_index:
+        for nl_id in tqdm(self.rel_index, desc="random_neg_sampling_dataset"):
             pos_pl_ids = self.rel_index[nl_id]
             for p_id in pos_pl_ids:
                 pos.append((nl_id, p_id, 1))
