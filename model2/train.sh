@@ -1,4 +1,4 @@
-python exec_TBert_experiment.py \
+python TBert_classify_train.py \
 --data_dir ./data/code_search_net/python \
 --output_dir ./output \
 --fp16 \

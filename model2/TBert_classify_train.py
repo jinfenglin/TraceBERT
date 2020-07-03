@@ -22,7 +22,8 @@ from common.models import TwinBert, TBert
 logger = logging.getLogger(__name__)
 
 
-def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_limit=None):
+def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_limit=None,
+                  cache_file_name="cached_{}.dat"):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
@@ -31,12 +32,13 @@ def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_lim
     :param evaluate:
     :param output_examples:
     :param num_limit the max number of instances read from the data file
+    :param cache_file_name the name of cache this method may create
     :return:
     """
     cache_dir = os.path.join(data_dir, "cache")
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
-    cached_file = os.path.join(cache_dir, "cached_{}.dat".format(data_type))
+    cached_file = os.path.join(cache_dir, cache_file_name.format(data_type))
     if os.path.exists(cached_file) and not overwrite:
         logger.info("Loading examples from cached file {}".format(cached_file))
         examples = torch.load(cached_file)
