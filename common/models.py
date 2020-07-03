@@ -78,10 +78,10 @@ class TBert(TwinBert):
             text_ids=None,
             text_attention_mask=None,
             relation_label=None):
-        c_hidden = self.nbert(code_ids, attention_mask=code_attention_mask)[0]
-        n_hidden = self.cbert(text_ids, attention_mask=text_attention_mask)[0]
+        c_hidden = self.cbert(code_ids, attention_mask=code_attention_mask)[0]
+        n_hidden = self.nbert(text_ids, attention_mask=text_attention_mask)[0]
 
-        logits = self.cls(c_hidden, n_hidden)
+        logits = self.cls(code_hidden=c_hidden, text_hidden=n_hidden)
         output_dict = {"logits": logits}
         if relation_label is not None:
             loss_fct = CrossEntropyLoss()
