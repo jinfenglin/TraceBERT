@@ -55,16 +55,8 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                                       scheduler, tb_writer, step_bar, skip_n_steps):
     """
     Create training dataset at epoch level.
-    :param args:
-    :param model:
-    :param train_examples:
-    :param valid_examples:
-    :param optimizer:
-    :param scheduler:
-    :param tb_writer:
-    :param step_bar:
-    :return:
     """
+
     tr_loss, tr_ac = 0, 0
     train_dataloader = None
     if args.neg_sampling == "random":
@@ -75,12 +67,11 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
     # epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
-    accum_bar = tqdm(total=args.gradient_accumulation_steps)
+
     for step, batch in enumerate(train_dataloader):
         if skip_n_steps > 0:
             skip_n_steps -= 1
             continue
-        accum_bar.update()
         model.train()
         labels = batch[2].to(model.device)
         inputs = format_batch_input(batch, train_examples, model)
@@ -112,12 +103,11 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
             else:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            accum_bar.refresh()
             optimizer.step()
             scheduler.step()
             model.zero_grad()
             args.global_step += 1
-            step_bar.update(1)
+            step_bar.update()
 
             if args.local_rank in [-1, 0] and args.logging_steps > 0 and args.global_step % args.logging_steps == 0:
                 tb_data = {
@@ -140,21 +130,23 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 # step invoke validation
                 valid_examples.update_embd(model)
                 valid_accuracy = evaluate_classification(valid_examples, model, args.per_gpu_eval_batch_size,
-                                                         "evaluate/runtime_eval")
+                                                         "evaluation/runtime_eval")
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
                                                      "evaluation/runtime_eval")
-                tb_writer.add_scalar("valid_accuracy", valid_accuracy, args.global_step)
-                tb_writer.add_scalar("precision@3", pk, args.global_step)
-                tb_writer.add_scalar("best_f1", best_f1, args.global_step)
-                tb_writer.add_scalar("MAP", map, args.global_step)
+                tb_data = {
+                    "valid_accuracy": valid_accuracy,
+                    "precision@3": pk,
+                    "best_f1": best_f1,
+                    "MAP": map
+                }
+                write_tensor_board(tb_writer, tb_data, args.global_step)
         args.steps_trained_in_current_epoch += 1
         if args.max_steps > 0 and args.global_step > args.max_steps:
-            epoch_iterator.close()
             break
 
 
 def train_with_batch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
-                                      scheduler, tb_writer, step_bar, skip_n_steps):
+                                      scheduler, tb_writer, skip_n_steps):
     pass
 
 
@@ -217,7 +209,6 @@ def train(args, train_examples, valid_examples, model):
     args.global_step = 1
     args.epochs_trained = 0
     args.steps_trained_in_current_epoch = 0
-
     if args.model_path and os.path.exists(args.model_path):
         ckpt = load_check_point(model, args.model_path, optimizer, scheduler)
         model, optimizer, scheduler, args = ckpt["model"], ckpt['optimizer'], ckpt['scheduler'], ckpt['args']
@@ -229,7 +220,7 @@ def train(args, train_examples, valid_examples, model):
     model.zero_grad()
     train_iterator = trange(args.epochs_trained, int(args.num_train_epochs), desc="Epoch",
                             disable=args.local_rank not in [-1, 0])
-    step_bar = tqdm(total=t_total, desc="Step progress")
+    step_bar = tqdm(initial=args.epochs_trained, total=t_total, desc="Steps")
     for _ in train_iterator:
         params = (
             args, model, train_examples, valid_examples, optimizer, scheduler, tb_writer, step_bar,
@@ -244,13 +235,12 @@ def train(args, train_examples, valid_examples, model):
         args.steps_trained_in_current_epoch = 0
 
         if args.max_steps > 0 and args.global_step > args.max_steps:
-            train_iterator.close()
             break
-    step_bar.close()
 
     model_output = os.path.join(args.output_dir, "final_model")
     save_check_point(model, model_output, args, optimizer, scheduler)
-
+    step_bar.close()
+    train_iterator.close()
     if args.local_rank in [-1, 0]:
         tb_writer.close()
 

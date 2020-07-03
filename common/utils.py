@@ -101,9 +101,7 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
     #     model = torch.nn.DataParallel(model)
 
     # Eval!
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-    res_file = os.path.join("classify_res.txt")
+
     clsfy_res = []
     num_correct = 0
     eval_num = 0
@@ -119,14 +117,17 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
             batch_correct = y_pred.eq(label).long().sum().item()
             num_correct += batch_correct
             eval_num += y_pred.size()[0]
-            clsfy_res.append((y_pred, label))
+            clsfy_res.append((y_pred, label, batch_correct))
 
     accuracy = num_correct / eval_num
-    tqdm.write("evaluate accuracy={}".format(accuracy))
-    if os.path.isfile(res_file):
-        with open(res_file, 'w') as fout:
-            for res in clsfy_res:
-                fout.write("pred:{}, label:{}, num_correct:{}".format(str(res[0]), str(res[1]), str(res[2])))
+    tqdm.write("\nevaluate accuracy={}\n".format(accuracy))
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+    res_file = os.path.join(output_dir, "raw_classify_res.txt")
+    with open(res_file, 'w') as fout:
+        for res in clsfy_res:
+            fout.write(
+                "pred:{}, label:{}, num_correct:{}\n".format(str(res[0].tolist()), str(res[1].tolist()), str(res[2])))
     return accuracy
 
 
@@ -160,8 +161,7 @@ def evaluate_retrival(model, eval_examples: Examples, batch_size, res_dir):
     best_f1, details = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
-    summary = "precision@3={}, best_f1 = {}, MAP={}".format(pk, best_f1, map)
-    tqdm.write(summary)
+    summary = "\nprecision@3={}, best_f1 = {}, MAP={}\n".format(pk, best_f1, map)
     with open(summary_path, 'w') as fout:
         fout.write(summary)
         fout.write(str(details))
