@@ -1,3 +1,4 @@
+import heapq
 import random
 from collections import defaultdict
 from functools import partial
@@ -212,8 +213,51 @@ class Examples:
         dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
         return dataset
 
-    def offline_neg_sampling_dataloader(self, batch_size):
-        pass
+    def __rank_and_select(self, model: TwinBert, batch_size, top_n, search_space_percent=1.0):
+        """
+        rank the negative sampels based on the model socores and then select the top n.
+        :param model:
+        :param top_n:
+        :param search_space_percent: generate a search space of len(pl_index) * len(nl_index) * search_space_percent.
+        Use this parameter to control the
+        :return:
+        """
+        res = []
+        self.update_embd(model)  # use the updated embedding
+        dataloader = self.get_retrivial_task_dataloader(batch_size)
+        total_num = len(dataloader) * search_space_percent
+        # TODO  remove code dupliation
+        for batch in tqdm(dataloader, desc="offline neg sampling rating"):
+            nl_ids = batch[0]
+            pl_ids = batch[1]
+            labels = batch[2]
+            nl_embd, pl_embd = self.id_pair_to_embd_pair(nl_ids, pl_ids)
+            model.eval()
+            with torch.no_grad():
+                nl_embd.to(model.device)
+                pl_embd.to(model.device)
+
+                logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
+                pred = torch.softmax(logits, 1).data.tolist()
+                for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
+                    res.append((n, p, lb, prd[1]))
+                    total_num -= 1
+
+        negs = heapq.nlargest(top_n, res, key=lambda x: x[3])  # find neg examples with largest pred score
+        return negs
+
+    def offline_neg_sampling_dataloader(self, model, batch_size):
+        pos, neg = [], []
+        neg_num = 0
+        for nl_id in self.rel_index:
+            pos_pl_ids = self.rel_index[nl_id]
+            for p_id in pos_pl_ids:
+                pos.append((nl_id, p_id, 1))
+            neg_num += len(pos_pl_ids)
+        neg = self.__rank_and_select(model, batch_size,neg_num)
+        sampler = RandomSampler(pos + neg)
+        dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
+        return dataset
 
     def online_neg_sampling_dataloader(self, batch_size):
         pass

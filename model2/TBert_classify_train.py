@@ -63,8 +63,8 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
     train_dataloader = None
     if args.neg_sampling == "random":
         train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
-    elif args.neg_sampling == "offlane":
-        train_dataloader = train_examples.offline_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
+    elif args.neg_sampling == "offline":
+        train_dataloader = train_examples.offline_neg_sampling_dataloader(model,batch_size=args.per_gpu_train_batch_size)
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 

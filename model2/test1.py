@@ -1,14 +1,13 @@
 import pandas as pd
 import torch
 from torch import Tensor
-from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 from transformers import BertConfig
 
 from common.data_processing import CodeSearchNetReader
 from common.data_structures import Examples
 from common.models import TBert
-from model2.exec_TBert_experiment import load_examples
+
 
 
 def relation_list(examples):
