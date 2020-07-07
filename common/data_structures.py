@@ -13,6 +13,8 @@ from common.models import TwinBert
 from torch import Tensor
 
 # keywords for features
+from debug import debug_dataset
+
 F_ID = 'id'
 F_TOKEN = 'toknes'
 F_ATTEN_MASK = "attention_mask"
@@ -254,7 +256,7 @@ class Examples:
             for p_id in pos_pl_ids:
                 pos.append((nl_id, p_id, 1))
             neg_num += len(pos_pl_ids)
-        neg = self.__rank_and_select(model, batch_size,neg_num)
+        neg = self.__rank_and_select(model, batch_size, neg_num)
         sampler = RandomSampler(pos + neg)
         dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
         return dataset

@@ -64,11 +64,10 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
     if args.neg_sampling == "random":
         train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
     elif args.neg_sampling == "offline":
-        train_dataloader = train_examples.offline_neg_sampling_dataloader(model,batch_size=args.per_gpu_train_batch_size)
+        train_dataloader = train_examples.offline_neg_sampling_dataloader(model=model,
+                                                                          batch_size=args.per_gpu_train_batch_size)
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
-
-    # epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
 
     for step, batch in enumerate(train_dataloader):
         if skip_n_steps > 0:
@@ -78,10 +77,12 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
         labels = batch[2].to(model.device)
         inputs = format_batch_input(batch, train_examples, model)
         inputs['relation_label'] = labels
+
         outputs = model(**inputs)
         loss = outputs['loss']
         logit = outputs['logits']
         y_pred = logit.data.max(1)[1]
+
         tr_ac += y_pred.eq(labels).long().sum().item()
 
         if args.n_gpu > 1:
@@ -131,12 +132,14 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
             if args.valid_step > 0 and args.global_step % args.valid_step == 0:
                 # step invoke validation
                 valid_examples.update_embd(model)
-                valid_accuracy = evaluate_classification(valid_examples, model, args.per_gpu_eval_batch_size,
-                                                         "evaluation/runtime_eval")
+                valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
+                                                                     args.per_gpu_eval_batch_size,
+                                                                     "evaluation/runtime_eval")
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
                                                      "evaluation/runtime_eval")
                 tb_data = {
                     "valid_accuracy": valid_accuracy,
+                    "valid_loss": valid_loss,
                     "precision@3": pk,
                     "best_f1": best_f1,
                     "MAP": map
@@ -291,7 +294,7 @@ def main():
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
-    parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offlane'],
+    parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offline'],
                         help="Negative sampling strategy we apply for constructing dataset. ")
     parser.add_argument(
         "--fp16_opt_level",

@@ -93,7 +93,16 @@ def results_to_df(res: List[Tuple]) -> DataFrame:
     return df
 
 
-def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size, output_dir):
+def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size, output_dir, append_label=True):
+    """
+
+    :param eval_examples:
+    :param model:
+    :param batch_size:
+    :param output_dir:
+    :param append_label: append label to calculate evaluation_loss
+    :return:
+    """
     eval_dataloader = eval_examples.random_neg_sampling_dataloader(batch_size=batch_size)
 
     # multi-gpu evaluate
@@ -105,21 +114,30 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
     clsfy_res = []
     num_correct = 0
     eval_num = 0
+    eval_loss = 0
 
     for batch in tqdm(eval_dataloader, desc="Classify Evaluating"):
-        model.eval()
-        inputs = format_batch_input(batch, eval_examples, model)
         with torch.no_grad():
-            label = batch[2].to(model.device)
+            model.eval()
+            labels = batch[2].to(model.device)
+            inputs = format_batch_input(batch, eval_examples, model)
+            if append_label:
+                inputs['relation_label'] = labels
+
             outputs = model(**inputs)
             logit = outputs['logits']
+            if append_label:
+                loss = outputs['loss'].item()
+                eval_loss += loss
             y_pred = logit.data.max(1)[1]
-            batch_correct = y_pred.eq(label).long().sum().item()
+
+            batch_correct = y_pred.eq(labels).long().sum().item()
             num_correct += batch_correct
             eval_num += y_pred.size()[0]
-            clsfy_res.append((y_pred, label, batch_correct))
+            clsfy_res.append((y_pred, labels, batch_correct))
 
     accuracy = num_correct / eval_num
+    eval_loss = eval_loss / len(eval_dataloader)
     tqdm.write("\nevaluate accuracy={}\n".format(accuracy))
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
@@ -128,7 +146,7 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
         for res in clsfy_res:
             fout.write(
                 "pred:{}, label:{}, num_correct:{}\n".format(str(res[0].tolist()), str(res[1].tolist()), str(res[2])))
-    return accuracy
+    return accuracy, eval_loss
 
 
 def evaluate_retrival(model, eval_examples: Examples, batch_size, res_dir):
