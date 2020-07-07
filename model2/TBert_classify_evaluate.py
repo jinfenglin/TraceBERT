@@ -10,8 +10,8 @@ import torch
 from transformers import BertConfig
 
 from model2.TBert_classify_train import load_examples
-from models import TBert
-from utils import evaluate_retrival
+from common.models import TBert
+from common.utils import evaluate_retrival, MODEL_FNAME
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -39,9 +39,11 @@ if __name__ == "__main__":
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
     model = TBert(BertConfig())
-    model.load_state_dict(torch.load(args.model_path))
+    # args.model_path = os.path.join(args.model_path, MODEL_FNAME)
+    # model.load_state_dict(torch.load(args.model_path))
     logger.info("model loaded")
 
     valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,
                                    overwrite=args.overwrite)
+    valid_examples.update_embd(model)
     evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size, args.output_dir)
