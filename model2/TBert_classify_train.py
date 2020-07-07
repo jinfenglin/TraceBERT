@@ -135,6 +135,9 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
                                                                      args.per_gpu_eval_batch_size,
                                                                      "evaluation/runtime_eval")
+                # TODO: remove debug
+                debug_train_accuracy = evaluate_classification(train_examples, model, args.per_gpu_eval_batch_size,
+                                                               "evaluation/runtime_train_eval")
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
                                                      "evaluation/runtime_eval")
                 tb_data = {
