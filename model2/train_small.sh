@@ -1,6 +1,7 @@
 python TBert_classify_train.py \
 --data_dir ./data/code_search_net/python \
 --output_dir ./output \
+--fp16 \
 --per_gpu_train_batch_size 8 \
 --per_gpu_eval_batch_size 8 \
 --logging_steps 20 \
@@ -11,4 +12,4 @@ python TBert_classify_train.py \
 --valid_num 200 \
 --valid_step 100 \
 --train_num 10000 \
---neg_sampling random \
+--neg_sampling offline \

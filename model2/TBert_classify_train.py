@@ -61,7 +61,7 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
 
     tr_loss, tr_ac = 0, 0
     train_dataloader = None
-    if args.neg_sampling == "random":
+    if args.neg_sampling == "random" or (args.neg_sampling == "offline" and args.global_step == 1):
         train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
     elif args.neg_sampling == "offline":
         train_dataloader = train_examples.offline_neg_sampling_dataloader(model=model,
@@ -135,9 +135,6 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
                 valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
                                                                      args.per_gpu_eval_batch_size,
                                                                      "evaluation/runtime_eval")
-                # TODO: remove debug
-                debug_train_accuracy = evaluate_classification(train_examples, model, args.per_gpu_eval_batch_size,
-                                                               "evaluation/runtime_train_eval")
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
                                                      "evaluation/runtime_eval")
                 tb_data = {

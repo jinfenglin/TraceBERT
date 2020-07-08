@@ -11,5 +11,5 @@ python TBert_classify_train.py \
 --learning_rate 4e-5 \
 --valid_num 200 \
 --valid_step 100 \
---neg_sampling random \
+--neg_sampling offline \
 --overwrite

@@ -142,8 +142,8 @@ class Examples:
         :param model:
         :return:
         """
-        self.__update_feature_for_index(self.NL_index, model.get_nl_tokenizer(), n_thread)
         self.__update_feature_for_index(self.PL_index, model.get_pl_tokenizer(), n_thread)
+        self.__update_feature_for_index(self.NL_index, model.get_nl_tokenizer(), n_thread)
 
     def __update_embd_for_index(self, index, sub_model):
         for id in tqdm(index, desc="update embedding"):
@@ -151,8 +151,8 @@ class Examples:
             input_tensor = torch.tensor(feature[F_INPUT_ID]).view(1, -1).to(sub_model.device)
             mask_tensor = torch.tensor(feature[F_ATTEN_MASK]).view(1, -1).to(sub_model.device)
             embd = sub_model(input_tensor, mask_tensor)[0]
-            embd.to('cpu')
-            index[id][F_EMBD] = embd
+            embd_cpu = embd.to('cpu')
+            index[id][F_EMBD] = embd_cpu
 
     def update_embd(self, model: TwinBert):
         """
@@ -227,23 +227,28 @@ class Examples:
         res = []
         self.update_embd(model)  # use the updated embedding
         dataloader = self.get_retrivial_task_dataloader(batch_size)
-        total_num = len(dataloader) * search_space_percent
+        total_batch = len(dataloader) * search_space_percent + 1
         # TODO  remove code dupliation
-        for batch in tqdm(dataloader, desc="offline neg sampling rating"):
-            nl_ids = batch[0]
-            pl_ids = batch[1]
-            labels = batch[2]
-            nl_embd, pl_embd = self.id_pair_to_embd_pair(nl_ids, pl_ids)
-            model.eval()
-            with torch.no_grad():
-                nl_embd.to(model.device)
-                pl_embd.to(model.device)
+        with tqdm(total=total_batch, desc="offline neg sampling rating") as sample_bar:
+            for batch in dataloader:
+                if total_batch <= 0:
+                    break
+                total_batch -= 1
+                sample_bar.update()
 
-                logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
-                pred = torch.softmax(logits, 1).data.tolist()
-                for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
-                    res.append((n, p, lb, prd[1]))
-                    total_num -= 1
+                nl_ids = batch[0]
+                pl_ids = batch[1]
+                labels = batch[2]
+                nl_embd, pl_embd = self.id_pair_to_embd_pair(nl_ids, pl_ids)
+                model.eval()
+                with torch.no_grad():
+                    nl_embd = nl_embd.to(model.device)
+                    pl_embd = pl_embd.to(model.device)
+
+                    logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
+                    pred = torch.softmax(logits, 1).data.tolist()
+                    for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
+                        res.append((n, p, lb, prd[1]))
 
         negs = heapq.nlargest(top_n, res, key=lambda x: x[3])  # find neg examples with largest pred score
         return negs
@@ -256,7 +261,7 @@ class Examples:
             for p_id in pos_pl_ids:
                 pos.append((nl_id, p_id, 1))
             neg_num += len(pos_pl_ids)
-        neg = self.__rank_and_select(model, batch_size, neg_num)
+        neg = self.__rank_and_select(model, batch_size, neg_num, search_space_percent=0.05)
         sampler = RandomSampler(pos + neg)
         dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
         return dataset
