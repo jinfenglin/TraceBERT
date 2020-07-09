@@ -163,8 +163,8 @@ def evaluate_retrival(model, eval_examples: Examples, batch_size, res_dir):
         nl_embd, pl_embd = eval_examples.id_pair_to_embd_pair(nl_ids, pl_ids)
         model.eval()
         with torch.no_grad():
-            nl_embd.to(model.device)
-            pl_embd.to(model.device)
+            nl_embd = nl_embd.to(model.device)
+            pl_embd = pl_embd.to(model.device)
 
             logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
             pred = torch.softmax(logits, 1).data.tolist()

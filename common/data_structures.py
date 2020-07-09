@@ -248,7 +248,8 @@ class Examples:
                     logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
                     pred = torch.softmax(logits, 1).data.tolist()
                     for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
-                        res.append((n, p, lb, prd[1]))
+                        if lb == 0:
+                            res.append((n, p, lb, prd[1]))
 
         negs = heapq.nlargest(top_n, res, key=lambda x: x[3])  # find neg examples with largest pred score
         return negs
@@ -261,7 +262,7 @@ class Examples:
             for p_id in pos_pl_ids:
                 pos.append((nl_id, p_id, 1))
             neg_num += len(pos_pl_ids)
-        neg = self.__rank_and_select(model, batch_size, neg_num, search_space_percent=0.05)
+        neg = self.__rank_and_select(model, batch_size, neg_num, search_space_percent=0.001)
         sampler = RandomSampler(pos + neg)
         dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
         return dataset
