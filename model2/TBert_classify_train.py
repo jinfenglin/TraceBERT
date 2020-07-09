@@ -53,19 +53,102 @@ def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_lim
     return examples
 
 
-def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
-                                      scheduler, tb_writer, step_bar, skip_n_steps):
+# def _process_training_batch(args, model, optimizer, scheduler, batch, train_examples, valid_examples, train_ac,
+#                             train_loss, step, step_bar, tb_writer):
+#     model.train()
+#     labels = batch[2].to(model.device)
+#     inputs = format_batch_input(batch, train_examples, model)
+#     inputs['relation_label'] = labels
+#
+#     outputs = model(**inputs)
+#     loss = outputs['loss']
+#     logit = outputs['logits']
+#     y_pred = logit.data.max(1)[1]
+#
+#     train_ac += y_pred.eq(labels).long().sum().item()
+#
+#     if args.n_gpu > 1:
+#         loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
+#     if args.gradient_accumulation_steps > 1:
+#         loss = loss / args.gradient_accumulation_steps
+#
+#     if args.fp16:
+#         try:
+#             from apex import amp
+#             with amp.scale_loss(loss, optimizer) as scaled_loss:
+#                 scaled_loss.backward()
+#         except ImportError:
+#             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+#     else:
+#         loss.backward()
+#     train_loss += loss.item()
+#
+#     if (step + 1) % args.gradient_accumulation_steps == 0:
+#         if args.fp16:
+#             torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
+#         else:
+#             torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+#
+#         optimizer.step()
+#         scheduler.step()
+#         model.zero_grad()
+#         args.global_step += 1
+#         step_bar.update()
+#
+#     if args.local_rank in [-1, 0] and args.logging_steps > 0 and args.global_step % args.logging_steps == 0:
+#         tb_data = {
+#             'lr': scheduler.get_last_lr()[0],
+#             'acc': train_ac / args.logging_steps / (
+#                     args.train_batch_size * args.gradient_accumulation_steps),
+#             'loss': train_loss / args.logging_steps
+#         }
+#         write_tensor_board(tb_writer, tb_data, args.global_step)
+#         tr_loss = 0.0
+#         tr_ac = 0.0
+#
+#     # Save model checkpoint
+#     if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
+#         # step invoke checkpoint writing
+#         ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
+#         save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
+#
+#     if args.valid_step > 0 and args.global_step % args.valid_step == 0:
+#         # step invoke validation
+#         valid_examples.update_embd(model)
+#         valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
+#                                                              args.per_gpu_eval_batch_size,
+#                                                              "evaluation/runtime_eval")
+#         pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
+#                                              "evaluation/runtime_eval")
+#         tb_data = {
+#             "valid_accuracy": valid_accuracy,
+#             "valid_loss": valid_loss,
+#             "precision@3": pk,
+#             "best_f1": best_f1,
+#             "MAP": map
+#         }
+#         write_tensor_board(tb_writer, tb_data, args.global_step)
+#         args.steps_trained_in_current_epoch += 1
+#         if args.max_steps > 0 and args.global_step > args.max_steps:
+#             return train_ac, train_loss,
+#     return train_ac, train_loss,
+
+
+def train_with_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
+                            scheduler, tb_writer, step_bar, skip_n_steps):
     """
     Create training dataset at epoch level.
     """
 
     tr_loss, tr_ac = 0, 0
-    train_dataloader = None
+    batch_size = args.per_gpu_train_batch_size
     if args.neg_sampling == "random" or (args.neg_sampling == "offline" and args.global_step == 1):
-        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=args.per_gpu_train_batch_size)
+        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
     elif args.neg_sampling == "offline":
         train_dataloader = train_examples.offline_neg_sampling_dataloader(model=model,
                                                                           batch_size=args.per_gpu_train_batch_size)
+    elif args.neg_sampling == "online":
+        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size)
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
@@ -73,6 +156,8 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
         if skip_n_steps > 0:
             skip_n_steps -= 1
             continue
+        if args.neg_sampling == "online":
+            batch = train_examples.make_online_neg_sampling_batch(batch, model)
         model.train()
         labels = batch[2].to(model.device)
         inputs = format_batch_input(batch, train_examples, model)
@@ -150,11 +235,6 @@ def train_with_epoch_lvl_neg_sampling(args, model, train_examples: Examples, val
             break
 
 
-def train_with_batch_lvl_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
-                                      scheduler, tb_writer, skip_n_steps):
-    pass
-
-
 def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -230,11 +310,8 @@ def train(args, train_examples, valid_examples, model):
         params = (
             args, model, train_examples, valid_examples, optimizer, scheduler, tb_writer, step_bar,
             skip_n_steps_in_epoch)
-        if args.neg_sampling == 'random' or args.neg_sampling == 'offline':
-            train_with_epoch_lvl_neg_sampling(*params)
-        elif args.neg_sampling == 'online':
-            train_with_batch_lvl_neg_sampling(*params)
 
+        train_with_neg_sampling(*params)
         args.epochs_trained += 1
         skip_n_steps_in_epoch = 0
         args.steps_trained_in_current_epoch = 0

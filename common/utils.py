@@ -9,7 +9,7 @@ import pandas as pd
 from pandas import DataFrame
 from tqdm import tqdm
 
-from common.data_structures import Examples
+
 from common.metrices import metrics
 from common.models import TwinBert
 
@@ -93,7 +93,7 @@ def results_to_df(res: List[Tuple]) -> DataFrame:
     return df
 
 
-def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size, output_dir, append_label=True):
+def evaluate_classification(eval_examples, model: TwinBert, batch_size, output_dir, append_label=True):
     """
 
     :param eval_examples:
@@ -149,7 +149,7 @@ def evaluate_classification(eval_examples: Examples, model: TwinBert, batch_size
     return accuracy, eval_loss
 
 
-def evaluate_retrival(model, eval_examples: Examples, batch_size, res_dir):
+def evaluate_retrival(model, eval_examples, batch_size, res_dir):
     if not os.path.isdir(res_dir):
         os.mkdir(res_dir)
     retr_res_path = os.path.join(res_dir, "raw_result.csv")
