@@ -256,13 +256,20 @@ class Examples:
 
     def offline_neg_sampling_dataloader(self, model, batch_size):
         pos, neg = [], []
-        neg_num = 0
+
         for nl_id in self.rel_index:
             pos_pl_ids = self.rel_index[nl_id]
             for p_id in pos_pl_ids:
                 pos.append((nl_id, p_id, 1))
-            neg_num += len(pos_pl_ids)
-        neg = self.__rank_and_select(model, batch_size, neg_num, search_space_percent=0.001)
+            sample_num = len(pos_pl_ids)
+            sel_neg_ids = exclude_and_sample(set(self.PL_index.keys()), pos_pl_ids, sample_num)
+            for n_id in sel_neg_ids:
+                neg.append((nl_id, n_id, 0))
+        pos_num = len(pos)
+        hard_neg_num = pos_num * 0.9  # number of hardest neg examples
+        rand_neg_num = pos_num * 0.1  # number of random neg examples
+        hard_neg = self.__rank_and_select(model, batch_size, hard_neg_num, search_space_percent=0.001)
+        neg = neg[:rand_neg_num] + hard_neg
         sampler = RandomSampler(pos + neg)
         dataset = DataLoader(pos + neg, batch_size=batch_size, sampler=sampler)
         return dataset
