@@ -20,7 +20,7 @@ class VSM:
         return matutils.cossim(doc1_vec, doc2_vec)
 
     def get_link_scores(self, source, target):
-        s_tokens = source['tokens']
-        t_tokens = target['tokens']
+        s_tokens = source['tokens'].split()
+        t_tokens = target['tokens'].split()
         score = self._get_doc_similarity(s_tokens, t_tokens)
         return score

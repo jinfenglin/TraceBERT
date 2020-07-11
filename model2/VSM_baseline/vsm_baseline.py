@@ -10,10 +10,15 @@ from nltk.tokenize import word_tokenize
 import many_stop_words
 from pandas import DataFrame
 from tqdm import tqdm
+from transformers import BertConfig
 
 from common.data_processing import CodeSearchNetReader
+from metrices import metrics
+from model2.TBert_classify_train import load_examples
 from model2.VSM_baseline.IRs import VSM
 import pandas as pd
+
+from models import TBert
 
 stop_words = many_stop_words.get_stop_words('en')
 
@@ -92,24 +97,6 @@ def convert_examples_to_dataset(examples, threads=1):
             else:
                 neg_features.append((NL_index[nl_id], PL_index[pl_id], 0))
 
-    # create negative instances
-    # pl_id_list = list(PL_index.keys())
-    # for f in tqdm(features, desc="creating negative features"):
-    #     nl, pl = f[0], f[1]
-    #     nl_id, pl_id = nl['id'], pl['id']
-    #     pos_pl_ids = rel_index[nl_id]
-    #     retry = 3
-    #     sample_time = 1
-    #     while sample_time > 0:
-    #         neg_pl_id = pl_id_list[random.randint(0, len(pl_id_list) - 1)]
-    #         if neg_pl_id not in pos_pl_ids:
-    #             neg_features.append((NL_index[nl_id], PL_index[neg_pl_id], 0))
-    #             retry = 3
-    #             sample_time -= 1
-    #         else:
-    #             retry -= 1
-    #             if retry == 0:
-    #                 break
     return pos_features, neg_features, NL_index, PL_index
 
 
@@ -240,15 +227,14 @@ def debug_instnace(instances):
 if __name__ == "__main__":
     vsm_res_file = "vsm_res.csv"
     override = True
+    valid_num = 200
     if not os.path.isfile(vsm_res_file) or override:
         data_dir = "../data/code_search_net/python"
-        csr = CodeSearchNetReader(data_dir)
-        examples = csr.get_examples('valid', repos=['aleju/imgaug'])
-        pos, neg, NL_index, PL_index = convert_examples_to_dataset(examples)
-        instances = pos + neg
-        debug_instnace(instances)
-        doc_tokens = [x['tokens'] for x in PL_index.values()]
-        # doc_tokens.extend(x[0]['tokens'] for x in instances)
+        model = TBert(BertConfig())
+        valid_examples = load_examples(data_dir, data_type="valid", model=model, num_limit=valid_num,
+                                       overwrite=override)
+        instances = valid_examples.get_retrivial_task_dataloader(batch_size=8).dataset
+        doc_tokens = [x['tokens'].split() for x in valid_examples.PL_index.values()]
         vsm = VSM()
         vsm.build_model(doc_tokens)
 
@@ -257,16 +243,25 @@ if __name__ == "__main__":
             s_id = ins[0]
             t_id = ins[1]
             label = ins[2]
-            pred = vsm.get_link_scores(ins[0], ins[1])
+            pred = vsm.get_link_scores(valid_examples.NL_index[ins[0]], valid_examples.PL_index[ins[1]])
             res.append((s_id, t_id, pred, label))
         df = pd.DataFrame()
-        df['s_id'] = [x[0]['id'] for x in res]
-        df['t_id'] = [x[1]['id'] for x in res]
+        df['s_id'] = [x[0] for x in res]
+        df['t_id'] = [x[1] for x in res]
         df['pred'] = [x[2] for x in res]
         df['label'] = [x[3] for x in res]
         df.to_csv(vsm_res_file)
     else:
         df = pd.read_csv(vsm_res_file)
-    print("evaluating...")
-    best_accuracy(df, threshold_interval=1)
-    topN_RPF(df, 3)
+
+    m = metrics(df, output_dir="./")
+    pk = m.precision_at_K(3)
+    best_f1, details = m.precision_recall_curve("pr_curve.png")
+    map = m.MAP_at_K(3)
+
+    summary = "\nprecision@3={}, best_f1 = {}, MAP={}\n".format(pk, best_f1, map)
+    print(summary)
+    # with open(summary_path, 'w') as fout:
+    #     fout.write(summary)
+    #     fout.write(str(details))
+    # return pk, best_f1, map

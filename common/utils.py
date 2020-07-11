@@ -9,7 +9,6 @@ import pandas as pd
 from pandas import DataFrame
 from tqdm import tqdm
 
-
 from common.metrices import metrics
 from common.models import TwinBert
 
@@ -161,12 +160,13 @@ def evaluate_retrival(model, eval_examples, batch_size, res_dir):
         pl_ids = batch[1]
         labels = batch[2]
         nl_embd, pl_embd = eval_examples.id_pair_to_embd_pair(nl_ids, pl_ids)
-        model.eval()
+
         with torch.no_grad():
+            model.eval()
             nl_embd = nl_embd.to(model.device)
             pl_embd = pl_embd.to(model.device)
-
             logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
+
             pred = torch.softmax(logits, 1).data.tolist()
             for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
                 res.append((n, p, prd[1], lb))

@@ -17,7 +17,7 @@ from debug import debug_dataset
 from utils import format_batch_input
 
 F_ID = 'id'
-F_TOKEN = 'toknes'
+F_TOKEN = 'tokens'
 F_ATTEN_MASK = "attention_mask"
 F_INPUT_ID = "input_ids"
 F_EMBD = "embd"
