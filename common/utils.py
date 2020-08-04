@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 def format_batch_input(batch, examples, model):
+    """
+    move tensors to device
+    :param batch:
+    :param examples:
+    :param model:
+    :return:
+    """
     nl_ids, pl_ids, labels = batch[0], batch[1], batch[2]
     features = examples.id_pair_to_feature_pair(nl_ids, pl_ids)
     features = [t.to(model.device) for t in features]
@@ -30,6 +37,39 @@ def format_batch_input(batch, examples, model):
         "text_attention_mask": nl_att,
         "code_ids": pl_in,
         "code_attention_mask": pl_att,
+    }
+    return inputs
+
+
+def format_triplet_batch_input(batch, examples, model):
+    anchor_ids, pos_cid, neg_cid = batch[0], batch[1], batch[2]
+    features = examples.id_triplet_to_feature_triplet(nl_id_tensor=anchor_ids, pos_pl_id_tensor=pos_cid,
+                                                      neg_pl_id_tensor=neg_cid)
+    features = [t.to(model.device) for t in features]
+    nl_in, nl_att, pos_pl_in, pos_pl_att, neg_pl_in, neg_pl_att = features
+    inputs = {
+        "text_ids": nl_in,
+        "text_attention_mask": nl_att,
+        "pos_code_ids": pos_pl_in,
+        "pos_code_attention_mask": pos_pl_att,
+        "neg_code_ids": neg_pl_in,
+        "neg_code_attention_mask": neg_pl_att,
+    }
+    return inputs
+
+
+def format_triplet_batch(batch, examples, model):
+    anchor, pos_ids, neg_ids = batch[0], batch[1], batch[2]
+    features = examples.id_triplet_to_feature_triplet(anchor, pos_ids, neg_ids)
+    features = [t.to(model.device) for t in features]
+    anch_in, anch_att, pos_in, pos_att, neg_in, neg_att = features
+    inputs = {
+        "text_ids": anch_in,
+        "text_attention_mask": anch_att,
+        "pos_code_ids": pos_in,
+        "pos_code_attention_mask": pos_att,
+        "neg_code_ids": neg_in,
+        "neg_code_attention_mask": neg_att,
     }
     return inputs
 
@@ -150,7 +190,7 @@ def evaluate_classification(eval_examples, model: TwinBert, batch_size, output_d
 
 def evaluate_retrival(model, eval_examples, batch_size, res_dir):
     if not os.path.isdir(res_dir):
-        os.mkdir(res_dir)
+        os.makedirs(res_dir)
     retr_res_path = os.path.join(res_dir, "raw_result.csv")
     summary_path = os.path.join(res_dir, "summary.txt")
     retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
@@ -165,11 +205,9 @@ def evaluate_retrival(model, eval_examples, batch_size, res_dir):
             model.eval()
             nl_embd = nl_embd.to(model.device)
             pl_embd = pl_embd.to(model.device)
-            logits = model.cls(code_hidden=pl_embd, text_hidden=nl_embd)
-
-            pred = torch.softmax(logits, 1).data.tolist()
-            for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), pred, labels.tolist()):
-                res.append((n, p, prd[1], lb))
+            sim_score = model.get_sim_score(text_hidden=nl_embd, code_hidden=pl_embd)
+            for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), sim_score, labels.tolist()):
+                res.append((n, p, prd, lb))
 
     df = results_to_df(res)
     df.to_csv(retr_res_path)

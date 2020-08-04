@@ -9,9 +9,10 @@ runs
 output
 *.pyc
 __pycache__
-*/VSM_baseline/*.csv
-model2/*.csv
-model2/evaluation
-model3/*.csv
+**/VSM_baseline/*.csv
+**/classify_model/*.csv
+**/retrival_model/*.csv
+**/debug_output/
+evaluation/
 *.log
 debug_output/*

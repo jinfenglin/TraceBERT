@@ -254,7 +254,7 @@ if __name__ == "__main__":
     else:
         df = pd.read_csv(vsm_res_file)
 
-    m = metrics(df, output_dir="./")
+    m = metrics(df, output_dir="/")
     pk = m.precision_at_K(3)
     best_f1, details = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)

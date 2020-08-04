@@ -4,10 +4,6 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-import torch
-from torch.utils.data import TensorDataset
-from tqdm import tqdm
-from model2.TBert import TBert
 
 
 class CodeSearchNetReader:

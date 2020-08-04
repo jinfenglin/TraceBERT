@@ -5,7 +5,7 @@ import os
 import sys
 
 sys.path.append("..")
-sys.path.append("../common")
+sys.path.append("../../common")
 
 import torch
 from torch.optim import AdamW
@@ -17,13 +17,13 @@ from common.utils import save_check_point, load_check_point, write_tensor_board,
     evaluate_classification, format_batch_input
 from common.data_processing import CodeSearchNetReader
 from common.data_structures import Examples
-from common.models import TwinBert, TBert
+from common.models import TwinBert, TBert, TBertR
 
 logger = logging.getLogger(__name__)
 
 
 def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_limit=None,
-                  cache_file_name="cached_{}.dat"):
+                  cache_file_name="cached_classify_{}.dat"):
     """
     Create data set for training and evaluation purpose. Save the formated dataset as cache
     :param args:
@@ -142,7 +142,7 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
 
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
-    if args.neg_sampling == "random" or (args.neg_sampling == "offline" and args.global_step == 1):
+    if args.neg_sampling == "random":
         train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
     elif args.neg_sampling == "offline":
         train_dataloader = train_examples.offline_neg_sampling_dataloader(model=model,
@@ -167,7 +167,6 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
         loss = outputs['loss']
         logit = outputs['logits']
         y_pred = logit.data.max(1)[1]
-
         tr_ac += y_pred.eq(labels).long().sum().item()
 
         if args.n_gpu > 1:
@@ -235,6 +234,37 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
             break
 
 
+def get_optimizer_scheduler(args, model, train_steps):
+    no_decay = ["bias", "LayerNorm.weight"]
+    optimizer_grouped_parameters = [
+        {
+            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "weight_decay": args.weight_decay,
+        },
+        {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
+    ]
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=train_steps
+    )
+    return optimizer, scheduler
+
+
+def log_train_info(args, example_num, train_steps):
+    logger.info("***** Running training *****")
+    logger.info("  Num examples = %d", example_num)
+    logger.info("  Num Epochs = %d", args.num_train_epochs)
+    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
+    logger.info(
+        "  Total train batch size (w. parallel, distributed & accumulation) = %d",
+        args.train_batch_size
+        * args.gradient_accumulation_steps
+        * (torch.distributed.get_world_size() if args.local_rank != -1 else 1),
+    )
+    logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
+    logger.info("  Total optimization steps = %d", train_steps)
+
+
 def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -247,20 +277,7 @@ def train(args, train_examples, valid_examples, model):
         args.num_train_epochs = args.max_steps // (epoch_batch_num // args.gradient_accumulation_steps) + 1
     else:
         t_total = epoch_batch_num // args.gradient_accumulation_steps * args.num_train_epochs
-
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
-    ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
-    )
-
+    optimizer, scheduler = get_optimizer_scheduler(args, model, t_total)
     if args.fp16:
         try:
             from apex import amp
@@ -274,22 +291,10 @@ def train(args, train_examples, valid_examples, model):
     # Distributed training (should be after apex fp16 initialization)
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True
-        )
+            model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
 
     # Train!
-    logger.info("***** Running training *****")
-    logger.info("  Num examples = %d", example_num)
-    logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
-    logger.info(
-        "  Total train batch size (w. parallel, distributed & accumulation) = %d",
-        args.train_batch_size
-        * args.gradient_accumulation_steps
-        * (torch.distributed.get_world_size() if args.local_rank != -1 else 1),
-    )
-    logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
-    logger.info("  Total optimization steps = %d", t_total)
+    log_train_info(args, example_num, t_total)
 
     args.global_step = 1
     args.epochs_trained = 0
@@ -327,7 +332,7 @@ def train(args, train_examples, valid_examples, model):
         tb_writer.close()
 
 
-def main():
+def get_train_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_dir", default="./data", type=str,
@@ -381,7 +386,10 @@ def main():
              "See details at https://nvidia.github.io/apex/amp.html",
     )
     args = parser.parse_args()
+    return args
 
+
+def init_train_env(args, tbert_type='classify'):
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -407,16 +415,18 @@ def main():
         bool(args.local_rank != -1),
         args.fp16,
     )
-
     # Set seed
     set_seed(args.seed, args.n_gpu)
-
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
-
-    model = TBert(BertConfig())
+    if tbert_type == 'classify' or tbert_type == "C":
+        model = TBert(BertConfig())
+    elif tbert_type == 'retrieval' or tbert_type == "R":
+        model = TBertR(BertConfig())
+    else:
+        raise Exception("TBERT type not found")
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
@@ -433,7 +443,12 @@ def main():
             apex.amp.register_half_function(torch, "einsum")
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+    return model
 
+
+def main():
+    args = get_train_args()
+    model = init_train_env(args, tbert_type='C')
     valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,
                                    overwrite=args.overwrite)
     train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,

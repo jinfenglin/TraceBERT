@@ -27,7 +27,7 @@ def find_embed(index, id_tensor: Tensor):
 
 
 def eval_retrival_test():
-    data_dir = "./data/code_search_net/python"
+    data_dir = "../data/code_search_net/python"
     res_file = "test_retrival.csv"
     model = TBert(BertConfig())
     model.to("cuda")

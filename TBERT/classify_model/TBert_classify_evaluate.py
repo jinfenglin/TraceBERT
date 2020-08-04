@@ -4,16 +4,17 @@ import os
 import sys
 
 sys.path.append("..")
-sys.path.append("../common")
+sys.path.append("../../common")
 
 import torch
 from transformers import BertConfig
 
-from model2.TBert_classify_train import load_examples
+from TBERT.classify_model.TBert_classify_train import load_examples
 from common.models import TBert
 from common.utils import evaluate_retrival, MODEL_FNAME
 
-if __name__ == "__main__":
+
+def get_eval_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_dir", default="./data/code_search_net/python", type=str,
@@ -26,6 +27,11 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", default="./eval_output", help="directory to store the results")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     args = parser.parse_args()
+    return args
+
+
+if __name__ == "__main__":
+    args = get_eval_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     res_file = os.path.join(args.output_dir, "./raw_res.csv")

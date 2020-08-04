@@ -178,28 +178,51 @@ class Examples:
 
     def id_pair_to_embd_pair(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) -> Tuple[Tensor, Tensor]:
         """Convert id pairs into embdding pairs"""
-        nl_embds, pl_embds = [], []
-        for nl_id, pl_id in zip(nl_id_tensor.tolist(), pl_id_tensor.tolist()):
-            nl_embds.append(self.NL_index[nl_id][F_EMBD])
-            pl_embds.append(self.PL_index[pl_id][F_EMBD])
-        nl_tensor = torch.stack(nl_embds)
-        pl_tensor = torch.stack(pl_embds)
+        nl_tensor = self._id_to_embd(nl_id_tensor, self.NL_index)
+        pl_tensor = self._id_to_embd(pl_id_tensor, self.PL_index)
         return nl_tensor, pl_tensor
 
     def id_pair_to_feature_pair(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) \
             -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """Convert id pairs into embdding pairs"""
-        nl_input_ids, nl_attention_masks, pl_input_ids, pl_attention_masks = [], [], [], []
-        for nl_id, pl_id in zip(nl_id_tensor.tolist(), pl_id_tensor.tolist()):
-            nl_input_ids.append(torch.tensor(self.NL_index[nl_id][F_INPUT_ID]))
-            nl_attention_masks.append(torch.tensor(self.NL_index[nl_id][F_ATTEN_MASK]))
-            pl_input_ids.append(torch.tensor(self.PL_index[pl_id][F_INPUT_ID]))
-            pl_attention_masks.append(torch.tensor(self.PL_index[pl_id][F_ATTEN_MASK]))
-        nl_input_tensor = torch.stack(nl_input_ids)
-        nl_att_tensor = torch.stack(nl_attention_masks)
-        pl_input_tensor = torch.stack(pl_input_ids)
-        pl_att_tensor = torch.stack(pl_attention_masks)
+        nl_input_tensor, nl_att_tensor = self._id_to_feature(nl_id_tensor, self.NL_index)
+        pl_input_tensor, pl_att_tensor = self._id_to_feature(pl_id_tensor, self.PL_index)
         return nl_input_tensor, nl_att_tensor, pl_input_tensor, pl_att_tensor
+
+    def id_triplet_to_feature_triplet(self, nl_id_tensor, pos_pl_id_tensor, neg_pl_id_tensor):
+        nl_input_tensor, nl_att_tensor = self._id_to_feature(nl_id_tensor, self.NL_index)
+        pos_pl_input_tensor, pos_pl_att_tensor = self._id_to_feature(pos_pl_id_tensor, self.PL_index)
+        neg_pl_input_tensor, neg_pl_att_tensor = self._id_to_feature(neg_pl_id_tensor, self.PL_index)
+        return nl_input_tensor, nl_att_tensor, pos_pl_input_tensor, \
+               pos_pl_att_tensor, neg_pl_input_tensor, neg_pl_att_tensor
+
+    def _id_to_feature(self, id_tensor: Tensor, index):
+        input_ids, att_masks = [], []
+        for id in id_tensor.tolist():
+            input_ids.append(torch.tensor(index[id][F_INPUT_ID]))
+            att_masks.append(torch.tensor(index[id][F_ATTEN_MASK]))
+        input_tensor = torch.stack(input_ids)
+        att_tensor = torch.stack(att_masks)
+        return input_tensor, att_tensor
+
+    def _id_to_embd(self, id_tensor: Tensor, index):
+        embds = []
+        for id in id_tensor.tolist():
+            embds.append(index[id][F_EMBD])
+        embd_tensor = torch.stack(embds)
+        return embd_tensor
+
+    def random_triplet_dataloader(self, batch_size):
+        triplets = []
+        for nl_id in tqdm(self.rel_index, desc="random_triplet_dataset"):
+            pos_pl_ids = self.rel_index[nl_id]
+            sample_num = len(pos_pl_ids)
+            neg_pl_ids = exclude_and_sample(set(self.PL_index.keys()), pos_pl_ids, sample_num)
+            for pos_id, neg_id in zip(pos_pl_ids, neg_pl_ids):
+                triplets.append((nl_id, pos_id, neg_id))
+        sampler = RandomSampler(triplets)
+        dataset = DataLoader(triplets, batch_size=batch_size, sampler=sampler)
+        return dataset
 
     def random_neg_sampling_dataloader(self, batch_size):
         pos, neg = [], []
@@ -325,4 +348,44 @@ class Examples:
             r_nl.append(r[0])
             r_pl.append(r[1])
             r_label.append(r[2])
-        return (torch.Tensor(r_nl,), torch.Tensor(r_pl), torch.Tensor(r_label).long())
+        return (torch.Tensor(r_nl), torch.Tensor(r_pl), torch.Tensor(r_label).long())
+
+    def combine_pos_neg_to_triplet(self, pos_cases, neg_cases):
+        res = []
+        for p, n in zip(pos_cases, neg_cases):
+            pass
+        return res
+
+    def make_online_triplet_sampling_batch(self, batch: Tuple, model: TwinBert):
+        nl_ids = batch[0].tolist()
+        pl_ids = batch[1].tolist()
+        neg = defaultdict(list)
+        cand_neg = []
+        res = []
+        for nl_id in nl_ids:
+            for pl_id in pl_ids:
+                label = 1 if self.__is_positive_case(nl_id, pl_id) else 0
+                if label == 0:
+                    cand_neg.append((nl_id, pl_id, 0))
+
+        neg_loader = DataLoader(cand_neg, batch_size=len(batch))
+        for neg_batch in neg_loader:
+            with torch.no_grad():
+                model.eval()
+                inputs = format_batch_input(neg_batch, self, model)
+                text_hidden = model.create_nl_embd(inputs['text_ids'], inputs['text_attention_mask'])[0]
+                code_hidden = model.create_pl_embd(inputs['code_ids'], inputs['code_attention_mask'])[0]
+                sim_scores = model.get_sim_score(text_hidden=text_hidden, code_hidden=code_hidden)
+                for nl, pl, score in zip(neg_batch[0].tolist(), neg_batch[1].tolist(), sim_scores):
+                    neg[nl].append((pl, score))
+
+        for nl_id, pl_id in zip(nl_ids, pl_ids):
+            hard_neg_exmp = heapq.nlargest(1, neg[nl_id], key=lambda x: x[1])[0]
+            res.append((nl_id, pl_id, hard_neg_exmp[0]))
+
+        r_nl, r_pos, r_neg = [], [], []
+        for r in res:
+            r_nl.append(r[0])
+            r_pos.append(r[1])
+            r_neg.append(r[2])
+        return (torch.Tensor(r_nl), torch.Tensor(r_pos), torch.Tensor(r_neg).long())
