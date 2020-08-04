@@ -73,54 +73,6 @@ def train(args, train_examples, valid_examples, model):
         skip_n_steps_in_epoch = 0
         if args.max_steps > 0 and args.global_step > args.max_steps:
             break
-        #
-        # args.steps_trained_in_current_epoch = 0
-        # for step, batch in enumerate(epoch_iterator):
-        #     if steps_trained_in_current_epoch > 0:
-        #         steps_trained_in_current_epoch -= 1
-        #         continue
-        #     model.train()
-        #     batch = tuple(t.to(args.device) for t in batch)
-        #     inputs = {
-        #         "text_ids": batch[1],
-        #         "pos_code_ids": batch[3],
-        #         "neg_code_ids": batch[5]
-        #     }
-        #     outputs = model(**inputs)
-        #     loss = outputs['loss']
-        #     if args.gradient_accumulation_steps > 1:
-        #         loss = loss / args.gradient_accumulation_steps
-        #     tr_loss += loss.item()
-        #
-        #     loss.backward()
-        #
-        #     if (step + 1) % args.gradient_accumulation_steps == 0:
-        #         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-        #
-        #         optimizer.step()
-        #         scheduler.step()
-        #         model.zero_grad()
-        #         global_step += 1
-        #         step_bar.update(1)
-        #
-        #         if args.logging_steps > 0 and global_step % args.logging_steps == 1:
-        #             tb_writer.add_scalar("lr", scheduler.get_last_lr()[0], global_step)
-        #             tb_writer.add_scalar("loss", tr_loss / args.logging_steps, global_step)
-        #             tr_loss = 0
-        #
-        #         # Save model checkpoint
-        #         if args.save_steps > 0 and global_step % args.save_steps == 0:
-        #             ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
-        #             if not os.path.exists(ckpt_output_dir):
-        #                 os.makedirs(ckpt_output_dir)
-        #             save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
-        #             logger.info("Saving optimizer and scheduler states to %s", ckpt_output_dir)
-        #
-        #         if args.valid_step > 0 and global_step % args.valid_step == 1:
-        #             if args.valid_num:
-        #                 f1, success_rate = evaluate(args, valid_dataset, model)
-        #                 tb_writer.add_scalar("valid_f1", f1, global_step)
-        #                 tb_writer.add_scalar("success_rate", success_rate, global_step)
 
     model_output = os.path.join(args.output_dir, "final_model")
     save_check_point(model, model_output, args, optimizer, scheduler)

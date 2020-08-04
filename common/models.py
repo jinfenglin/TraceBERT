@@ -68,8 +68,11 @@ class TBert(TwinBert):
         self.ctokneizer = AutoTokenizer.from_pretrained(cbert_model)
         self.cbert = AutoModel.from_pretrained(cbert_model)
 
-        self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
-        self.nbert = AutoModel.from_pretrained(nbert_model)
+        # self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
+        # self.nbert = AutoModel.from_pretrained(nbert_model)
+        self.ntokenizer = self.ctokneizer
+        self.nbert = self.cbert
+
         self.cls = RelationClassifyHeader2(config)
 
     def forward(
@@ -120,7 +123,7 @@ class CosineTrainHeader(nn.Module):
         self.hidden_size = config.hidden_size
         self.code_pooler = AvgPooler(config)
         self.text_pooler = AvgPooler(config)
-        self.margin = 1
+        self.margin = 0.5
 
     def forward(self, text_hidden, pos_code_hidden, neg_code_hidden):
         pool_pos_code_hidden = self.code_pooler(pos_code_hidden)
