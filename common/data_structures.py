@@ -1,20 +1,15 @@
 import heapq
 import random
 from collections import defaultdict
-from functools import partial
-from multiprocessing.pool import Pool
 from typing import List, Tuple
 
 import torch
-from torch.utils.data import DataLoader, RandomSampler, TensorDataset
+from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
 from common.models import TwinBert
 from torch import Tensor
-
-# keywords for features
-from debug import debug_dataset
-from utils import format_batch_input
+from common.utils import format_batch_input
 
 F_ID = 'id'
 F_TOKEN = 'tokens'

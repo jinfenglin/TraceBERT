@@ -1,20 +1,15 @@
 import logging
 import os
 import sys
-from collections import defaultdict
-from functools import partial
-from multiprocessing.pool import Pool
+
+sys.path.append("../..")
 
 import torch
-from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm, trange
 
-from data_structures import Examples
-from utils import load_check_point, save_check_point, write_tensor_board, evaluate_retrival, format_triplet_batch_input
-
-sys.path.append("..")
-sys.path.append("../../common")
+from common.data_structures import Examples
+from common.utils import load_check_point, save_check_point, write_tensor_board, evaluate_retrival, format_triplet_batch_input
 
 from TBERT.classify_model.TBert_classify_train import get_train_args, init_train_env, load_examples, \
     get_optimizer_scheduler, log_train_info
