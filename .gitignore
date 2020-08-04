@@ -16,3 +16,5 @@ __pycache__
 evaluation/
 *.log
 debug_output/*
+model3
+results

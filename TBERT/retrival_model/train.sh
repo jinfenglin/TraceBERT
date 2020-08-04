@@ -11,5 +11,4 @@ python TBert_retrival_train.py \
 --learning_rate 4e-5 \
 --valid_num 200 \
 --valid_step 100 \
---neg_sampling random \
---overwrite
+--neg_sampling random
