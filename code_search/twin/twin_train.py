@@ -4,8 +4,7 @@ import multiprocessing
 import os
 import sys
 
-sys.path.append("..")
-sys.path.append("../../common")
+sys.path.append("../..")
 
 import torch
 from torch.optim import AdamW

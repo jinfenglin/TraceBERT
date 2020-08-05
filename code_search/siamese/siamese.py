@@ -9,7 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm, trange
 
 from common.data_structures import Examples
-from common.utils import load_check_point, save_check_point, write_tensor_board, evaluate_retrival, format_triplet_batch_input
+from common.utils import load_check_point, save_check_point, write_tensor_board, evaluate_retrival, \
+    format_triplet_batch_input
 
 from code_search.twin.twin_train import get_train_args, init_train_env, load_examples, \
     get_optimizer_scheduler, log_train_info
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter()
+        tb_writer = SummaryWriter("../runs")
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     example_num = len(train_examples)
     epoch_batch_num = example_num / args.train_batch_size
