@@ -1,7 +1,6 @@
 python twin_train.py \
 --data_dir ../data/code_search_net/python \
 --output_dir ./output \
---fp16 \
 --per_gpu_train_batch_size 8 \
 --per_gpu_eval_batch_size 8 \
 --logging_steps 10 \
