@@ -179,7 +179,7 @@ def evaluate_classification(eval_examples, model: TwinBert, batch_size, output_d
     eval_loss = eval_loss / len(eval_dataloader)
     tqdm.write("\nevaluate accuracy={}\n".format(accuracy))
     if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir)
     res_file = os.path.join(output_dir, "raw_classify_res.txt")
     with open(res_file, 'w') as fout:
         for res in clsfy_res:

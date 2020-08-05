@@ -18,7 +18,7 @@ from model2.TBert_classify_train import load_examples
 from model2.VSM_baseline.IRs import VSM
 import pandas as pd
 
-from models import TBert
+from models import TBertT
 
 stop_words = many_stop_words.get_stop_words('en')
 
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     valid_num = 200
     if not os.path.isfile(vsm_res_file) or override:
         data_dir = "../data/code_search_net/python"
-        model = TBert(BertConfig())
+        model = TBertT(BertConfig())
         valid_examples = load_examples(data_dir, data_type="valid", model=model, num_limit=valid_num,
                                        overwrite=override)
         instances = valid_examples.get_retrivial_task_dataloader(batch_size=8).dataset

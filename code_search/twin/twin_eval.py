@@ -10,7 +10,7 @@ import torch
 from transformers import BertConfig
 
 from TBERT.classify_model.TBert_classify_train import load_examples
-from common.models import TBert
+from common.models import TBertT
 from common.utils import evaluate_retrival, MODEL_FNAME
 
 
@@ -44,9 +44,7 @@ if __name__ == "__main__":
 
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
-    model = TBert(BertConfig())
-    # args.model_path = os.path.join(args.model_path, MODEL_FNAME)
-    # model.load_state_dict(torch.load(args.model_path))
+    model = TBertT(BertConfig())
     logger.info("model loaded")
 
     valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,

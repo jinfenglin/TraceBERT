@@ -11,7 +11,7 @@ from tqdm import tqdm, trange
 from common.data_structures import Examples
 from common.utils import load_check_point, save_check_point, write_tensor_board, evaluate_retrival, format_triplet_batch_input
 
-from TBERT.classify_model.TBert_classify_train import get_train_args, init_train_env, load_examples, \
+from code_search.twin.twin_train import get_train_args, init_train_env, load_examples, \
     get_optimizer_scheduler, log_train_info
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ def train_with_triplet_neg_sampling(args, model, train_examples: Examples, valid
 
 def main():
     args = get_train_args()
-    model = init_train_env(args, tbert_type='R')
+    model = init_train_env(args, tbert_type='I')
     valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,
                                    overwrite=args.overwrite)
     train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,

@@ -1,5 +1,6 @@
 import heapq
 import random
+import numpy as np
 from collections import defaultdict
 from typing import List, Tuple
 
@@ -17,11 +18,18 @@ F_ATTEN_MASK = "attention_mask"
 F_INPUT_ID = "input_ids"
 F_EMBD = "embd"
 
+# epoch cache data name
+CLASSIFY_RANDON_CACHE = 'classify_random_epoch_{}.cache'
+CLASSIFY_NEG_SAMP_CACHE = 'classify_neg_epoch_{}.cache'
+RETRIVE_RANDOM_CACHE = 'retrive_random_epoch_{}.cache'
+RETRIVE_NEG_SAMP_CACHE = 'retrive_neg_epoch_{}.cache'
+
 
 def exclude_and_sample(sample_pool, exclude, num):
     for id in exclude:
         sample_pool.remove(id)
-    selected = random.sample(list(sample_pool), num)
+    # selected = random.sample(list(sample_pool), num)
+    selected = np.random.choice(list(sample_pool), num, replace=False)
     return selected
 
 
@@ -375,8 +383,9 @@ class Examples:
                     neg[nl].append((pl, score))
 
         for nl_id, pl_id in zip(nl_ids, pl_ids):
-            hard_neg_exmp = heapq.nlargest(1, neg[nl_id], key=lambda x: x[1])[0]
-            res.append((nl_id, pl_id, hard_neg_exmp[0]))
+            if len(neg[nl_id]):
+                hard_neg_exmp = heapq.nlargest(1, neg[nl_id], key=lambda x: x[1])[0]
+                res.append((nl_id, pl_id, hard_neg_exmp[0]))
 
         r_nl, r_pos, r_neg = [], [], []
         for r in res:

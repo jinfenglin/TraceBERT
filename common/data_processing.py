@@ -5,6 +5,11 @@ from collections import defaultdict
 from pathlib import Path
 
 
+def format_str(string):
+    for char in ['\r\n', '\r', '\n']:
+        string = string.replace(char, ' ')
+    return string
+
 
 class CodeSearchNetReader:
     def __init__(self, data_dir, lang="python"):
@@ -47,12 +52,14 @@ class CodeSearchNetReader:
                     if num_limit is not None:
                         if num_limit <= 0:
                             break
-                    jobj = json.loads(line)
+                    jobj = json.loads(str(line, encoding='utf-8'))
                     repo = jobj['repo']
                     if len(repos) > 0 and repo not in repos:
                         continue
-                    code = jobj['code']
-                    doc_str = jobj['docstring']
+                    # code = jobj['code']
+                    code = ' '.join([format_str(token) for token in jobj['code_tokens']])
+                    # doc_str = jobj['docstring']
+                    doc_str = ' '.join(jobj['docstring_tokens'])
                     code = code.replace(doc_str, "")
                     if summary_only:
                         doc_str = self.get_summary_from_docstring(doc_str)

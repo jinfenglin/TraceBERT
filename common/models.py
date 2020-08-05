@@ -35,7 +35,7 @@ class AvgPooler(nn.Module):
         return self.pooler(hidden_states).view(-1, self.hidden_size)
 
 
-class RelationClassifyHeader2(nn.Module):
+class RelationClassifyHeader(nn.Module):
     """
     H2:
     use averaging pooling across tokens to replace first_token_pooling
@@ -57,23 +57,20 @@ class RelationClassifyHeader2(nn.Module):
         return self.output_layer(concated_hidden)
 
 
-class TBert(TwinBert):
-    def __init__(self, config):
+class TBertT(TwinBert):
+    def __init__(self, config, code_bert):
         super().__init__(config)
-        cbert_model = "huggingface/CodeBERTa-small-v1"
-        # nbert_model = "bert-base-uncased"
-        # nbert_model = "roberta-base"
-        nbert_model = "huggingface/CodeBERTa-small-v1"
+        # nbert_model = "huggingface/CodeBERTa-small-v1"
+        cbert_model = code_bert
+        nbert_model = code_bert
 
         self.ctokneizer = AutoTokenizer.from_pretrained(cbert_model)
         self.cbert = AutoModel.from_pretrained(cbert_model)
 
-        # self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
-        # self.nbert = AutoModel.from_pretrained(nbert_model)
-        self.ntokenizer = self.ctokneizer
-        self.nbert = self.cbert
+        self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
+        self.nbert = AutoModel.from_pretrained(nbert_model)
 
-        self.cls = RelationClassifyHeader2(config)
+        self.cls = RelationClassifyHeader(config)
 
     def forward(
             self,
@@ -96,7 +93,7 @@ class TBert(TwinBert):
     def get_sim_score(self, text_hidden, code_hidden):
         logits = self.cls(text_hidden=text_hidden, code_hidden=code_hidden)
         sim_scores = torch.softmax(logits, 1).data.tolist()
-        return sim_scores
+        return [x[1] for x in sim_scores]
 
     def get_nl_tokenizer(self):
         return self.ntokenizer
@@ -136,17 +133,15 @@ class CosineTrainHeader(nn.Module):
         return loss, anchor_sim, neg_sim
 
 
-class TBertR(TwinBert):
-    def __init__(self, config):
+class TBertI(TwinBert):
+    def __init__(self, config, code_bert):
         super().__init__(config)
-        cbert_model = "huggingface/CodeBERTa-small-v1"
-        nbert_model = "huggingface/CodeBERTa-small-v1"
 
-        self.ctokneizer = AutoTokenizer.from_pretrained(cbert_model)
-        self.cbert = AutoModel.from_pretrained(cbert_model)
+        self.ctokneizer = AutoTokenizer.from_pretrained(code_bert)
+        self.cbert = AutoModel.from_pretrained(code_bert)
 
-        self.ntokenizer = AutoTokenizer.from_pretrained(nbert_model)
-        self.nbert = AutoModel.from_pretrained(nbert_model)
+        self.ntokenizer = self.ctokneizer
+        self.nbert = self.cbert
         self.cls = CosineTrainHeader(config)
 
     def forward(

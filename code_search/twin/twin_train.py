@@ -17,7 +17,7 @@ from common.utils import save_check_point, load_check_point, write_tensor_board,
     evaluate_classification, format_batch_input
 from common.data_processing import CodeSearchNetReader
 from common.data_structures import Examples
-from common.models import TwinBert, TBert, TBertR
+from common.models import TwinBert, TBertT, TBertI
 
 logger = logging.getLogger(__name__)
 
@@ -51,87 +51,6 @@ def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_lim
         logger.info("Saving processed examples into cached file {}".format(cached_file))
         torch.save(examples, cached_file)
     return examples
-
-
-# def _process_training_batch(args, model, optimizer, scheduler, batch, train_examples, valid_examples, train_ac,
-#                             train_loss, step, step_bar, tb_writer):
-#     model.train()
-#     labels = batch[2].to(model.device)
-#     inputs = format_batch_input(batch, train_examples, model)
-#     inputs['relation_label'] = labels
-#
-#     outputs = model(**inputs)
-#     loss = outputs['loss']
-#     logit = outputs['logits']
-#     y_pred = logit.data.max(1)[1]
-#
-#     train_ac += y_pred.eq(labels).long().sum().item()
-#
-#     if args.n_gpu > 1:
-#         loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
-#     if args.gradient_accumulation_steps > 1:
-#         loss = loss / args.gradient_accumulation_steps
-#
-#     if args.fp16:
-#         try:
-#             from apex import amp
-#             with amp.scale_loss(loss, optimizer) as scaled_loss:
-#                 scaled_loss.backward()
-#         except ImportError:
-#             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
-#     else:
-#         loss.backward()
-#     train_loss += loss.item()
-#
-#     if (step + 1) % args.gradient_accumulation_steps == 0:
-#         if args.fp16:
-#             torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
-#         else:
-#             torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-#
-#         optimizer.step()
-#         scheduler.step()
-#         model.zero_grad()
-#         args.global_step += 1
-#         step_bar.update()
-#
-#     if args.local_rank in [-1, 0] and args.logging_steps > 0 and args.global_step % args.logging_steps == 0:
-#         tb_data = {
-#             'lr': scheduler.get_last_lr()[0],
-#             'acc': train_ac / args.logging_steps / (
-#                     args.train_batch_size * args.gradient_accumulation_steps),
-#             'loss': train_loss / args.logging_steps
-#         }
-#         write_tensor_board(tb_writer, tb_data, args.global_step)
-#         tr_loss = 0.0
-#         tr_ac = 0.0
-#
-#     # Save model checkpoint
-#     if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
-#         # step invoke checkpoint writing
-#         ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
-#         save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
-#
-#     if args.valid_step > 0 and args.global_step % args.valid_step == 0:
-#         # step invoke validation
-#         valid_examples.update_embd(model)
-#         valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
-#                                                              args.per_gpu_eval_batch_size,
-#                                                              "evaluation/runtime_eval")
-#         pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
-#                                              "evaluation/runtime_eval")
-#         tb_data = {
-#             "valid_accuracy": valid_accuracy,
-#             "valid_loss": valid_loss,
-#             "precision@3": pk,
-#             "best_f1": best_f1,
-#             "MAP": map
-#         }
-#         write_tensor_board(tb_writer, tb_data, args.global_step)
-#         args.steps_trained_in_current_epoch += 1
-#         if args.max_steps > 0 and args.global_step > args.max_steps:
-#             return train_ac, train_loss,
-#     return train_ac, train_loss,
 
 
 def train_with_neg_sampling(args, model, train_examples: Examples, valid_examples: Examples, optimizer,
@@ -267,7 +186,7 @@ def log_train_info(args, example_num, train_steps):
 
 def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter()
+        tb_writer = SummaryWriter(log_dir="../runs")
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     example_num = 2 * len(train_examples)  # 50/50 of pos/neg
@@ -378,6 +297,10 @@ def get_train_args():
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
     parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offline'],
                         help="Negative sampling strategy we apply for constructing dataset. ")
+    parser.add_argument("--code_bert", default='microsoft/codebert-base',
+                        choices=['microsoft/codebert-base', 'huggingface/CodeBERTa-small-v1',
+                                 'codistai/codeBERT-small-v2'],
+                        help="Negative sampling strategy we apply for constructing dataset. ")
     parser.add_argument(
         "--fp16_opt_level",
         type=str,
@@ -421,10 +344,12 @@ def init_train_env(args, tbert_type='classify'):
     if args.local_rank not in [-1, 0]:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
-    if tbert_type == 'classify' or tbert_type == "C":
-        model = TBert(BertConfig())
-    elif tbert_type == 'retrieval' or tbert_type == "R":
-        model = TBertR(BertConfig())
+    if tbert_type == 'twin' or tbert_type == "T":
+        model = TBertT(BertConfig(), args.code_bert)
+    elif tbert_type == 'siamese' or tbert_type == "I":
+        model = TBertI(BertConfig(), args.code_bert)
+    elif tbert_type == 'single' or tbert_type == "S":
+        pass
     else:
         raise Exception("TBERT type not found")
     if args.local_rank == 0:
@@ -448,7 +373,7 @@ def init_train_env(args, tbert_type='classify'):
 
 def main():
     args = get_train_args()
-    model = init_train_env(args, tbert_type='C')
+    model = init_train_env(args, tbert_type='twin')
     valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,
                                    overwrite=args.overwrite)
     train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,
