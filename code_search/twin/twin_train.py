@@ -16,7 +16,7 @@ from common.utils import save_check_point, load_check_point, write_tensor_board,
     evaluate_classification, format_batch_input
 from common.data_processing import CodeSearchNetReader
 from common.data_structures import Examples
-from common.models import TwinBert, TBertT, TBertI
+from common.models import TwinBert, TBertT, TBertI, TBertS
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,16 @@ def log_train_info(args, example_num, train_steps):
     logger.info("  Total optimization steps = %d", train_steps)
 
 
-def train(args, train_examples, valid_examples, model):
+def train(args, train_examples, valid_examples, model, train_iter_method):
+    """
+
+    :param args:
+    :param train_examples:
+    :param valid_examples:
+    :param model:
+    :param train_iter_method: method use for training in each iteration
+    :return:
+    """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter(log_dir="../runs")
 
@@ -234,7 +243,8 @@ def train(args, train_examples, valid_examples, model):
             args, model, train_examples, valid_examples, optimizer, scheduler, tb_writer, step_bar,
             skip_n_steps_in_epoch)
 
-        train_with_neg_sampling(*params)
+        # train_with_neg_sampling(*params)
+        train_iter_method(*params)
         args.epochs_trained += 1
         skip_n_steps_in_epoch = 0
         args.steps_trained_in_current_epoch = 0
@@ -348,7 +358,7 @@ def init_train_env(args, tbert_type='classify'):
     elif tbert_type == 'siamese' or tbert_type == "I":
         model = TBertI(BertConfig(), args.code_bert)
     elif tbert_type == 'single' or tbert_type == "S":
-        pass
+        model = TBertS(BertConfig(), args.code_bert)
     else:
         raise Exception("TBERT type not found")
     if args.local_rank == 0:
@@ -377,7 +387,7 @@ def main():
                                    overwrite=args.overwrite)
     train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,
                                    overwrite=args.overwrite)
-    train(args, train_examples, valid_examples, model)
+    train(args, train_examples, valid_examples, model, train_iter_method=train_with_neg_sampling)
     logger.info("Training finished")
 
 

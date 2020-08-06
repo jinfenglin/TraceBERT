@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
-from transformers import AutoTokenizer, AutoModel, PreTrainedModel
+from transformers import AutoTokenizer, AutoModel, PreTrainedModel, AutoModelForSequenceClassification
 import torch.nn.functional as F
 
 
@@ -201,3 +201,36 @@ class TBertI(TwinBert):
 
     def get_pl_sub_model(self):
         return self.cbert
+
+
+class TBertS(PreTrainedModel):
+    def __init__(self, config, code_bert):
+        super().__init__(config)
+        self.tokenizer = AutoTokenizer.from_pretrained(code_bert)
+        self.bert = AutoModelForSequenceClassification.from_pretrained(code_bert)
+
+    def forward(self, input_ids, attention_mask, token_type_ids, relation_label=None):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids,
+                            labels=relation_label)
+        res = dict()
+        if relation_label is not None:
+            loss = outputs[0]
+            res['loss'] = loss
+            logits = outputs[1]
+            res['logits'] = logits
+        else:
+            logits = outputs[0]
+            res['logits'] = logits
+        return res
+
+    def get_sim_score(self, input_ids, attention_mask, token_type_ids):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+        logits = outputs[0]
+        sim_scores = torch.softmax(logits, 1).data.tolist()
+        return [x[1] for x in sim_scores]
+
+    def get_nl_tokenizer(self):
+        return self.tokenizer
+
+    def get_pl_tokenizer(self):
+        return self.tokenizer

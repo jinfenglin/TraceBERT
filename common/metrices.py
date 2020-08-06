@@ -71,7 +71,7 @@ class metrics:
         for s_id, group in group_tops:
             for index, row in group.head(k).iterrows():
                 hits += 1 if row['label'] == 1 else 0
-                cnt += 1
+            cnt += 1
         return round(hits / cnt if cnt > 0 else 0, 3)
 
     def MAP_at_K(self, k=1):

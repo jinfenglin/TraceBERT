@@ -8,15 +8,17 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
-from common.models import TwinBert
+from common.models import TwinBert, TBertS
 from torch import Tensor
-from common.utils import format_batch_input
+
+from common.utils import format_batch_input, format_batch_input_for_single_bert
 
 F_ID = 'id'
 F_TOKEN = 'tokens'
 F_ATTEN_MASK = "attention_mask"
 F_INPUT_ID = "input_ids"
 F_EMBD = "embd"
+F_TK_TYPE = "token_type_ids"
 
 # epoch cache data name
 CLASSIFY_RANDON_CACHE = 'classify_random_epoch_{}.cache'
@@ -124,6 +126,25 @@ class Examples:
             F_ID: example[F_ID],
             F_INPUT_ID: feature[F_INPUT_ID],
             F_ATTEN_MASK: feature[F_ATTEN_MASK]}
+        return res
+
+    def _gen_seq_pair_feature(self, nl_id, pl_id, tokenizer):
+        nl_tks = self.NL_index[nl_id][F_TOKEN]
+        pl_tks = self.PL_index[pl_id][F_TOKEN]
+        feature = tokenizer.encode_plus(
+            text=nl_tks,
+            text_pair=pl_tks,
+            pad_to_max_length=True,
+            return_attention_mask=True,
+            return_token_type_ids=True,
+            max_length=512,
+            add_special_tokens=True
+        )
+        res = {
+            F_INPUT_ID: feature[F_INPUT_ID],
+            F_ATTEN_MASK: feature[F_ATTEN_MASK],
+            F_TK_TYPE: feature[F_TK_TYPE]
+        }
         return res
 
     def __update_feature_for_index(self, index, tokenizer, n_thread):
@@ -334,7 +355,10 @@ class Examples:
         for neg_batch in neg_loader:
             with torch.no_grad():
                 model.eval()
-                inputs = format_batch_input(neg_batch, self, model)
+                if isinstance(model, TBertS):
+                    inputs = format_batch_input_for_single_bert(neg_batch, self, model)
+                else:
+                    inputs = format_batch_input(neg_batch, self, model)
                 outputs = model(**inputs)
                 logits = outputs['logits']
                 pred = torch.softmax(logits, 1).data.tolist()

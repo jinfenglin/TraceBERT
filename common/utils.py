@@ -10,7 +10,7 @@ from pandas import DataFrame
 from tqdm import tqdm
 
 from common.metrices import metrics
-from common.models import TwinBert
+from common.models import TwinBert, TBertS
 
 MODEL_FNAME = "t_bert.pt"
 OPTIMIZER_FNAME = "optimizer.pt"
@@ -18,6 +18,30 @@ SCHED_FNAME = "scheduler.pt"
 ARG_FNAME = "training_args.bin"
 
 logger = logging.getLogger(__name__)
+
+
+def format_batch_input_for_single_bert(batch, examples, model):
+    tokenizer = model.tokenizer
+    nl_ids, pl_ids, labels = batch[0].tolist(), batch[1].tolist(), batch[2].tolist()
+    input_ids = []
+    att_masks = []
+    tk_types = []
+    for nid, pid, lb in zip(nl_ids, pl_ids, labels):
+        encode = examples._gen_seq_pair_feature(nid, pid, tokenizer)
+        input_ids.append(torch.tensor(encode["input_ids"], dtype=torch.long))
+        att_masks.append(torch.tensor(encode["attention_mask"], dtype=torch.long))
+        tk_types.append(torch.tensor(encode["token_type_ids"], dtype=torch.long))
+    input_tensor = torch.stack(input_ids)
+    att_tensor = torch.stack(att_masks)
+    tk_type_tensor = torch.stack(tk_types)
+    features = [input_tensor, att_tensor, tk_type_tensor]
+    features = [t.to(model.device) for t in features]
+    inputs = {
+        'input_ids': features[0],
+        'attention_mask': features[1],
+        'token_type_ids': features[2],
+    }
+    return inputs
 
 
 def format_batch_input(batch, examples, model):
@@ -159,7 +183,10 @@ def evaluate_classification(eval_examples, model: TwinBert, batch_size, output_d
         with torch.no_grad():
             model.eval()
             labels = batch[2].to(model.device)
-            inputs = format_batch_input(batch, eval_examples, model)
+            if isinstance(model, TBertS):
+                inputs = format_batch_input_for_single_bert(batch, eval_examples, model)
+            else:
+                inputs = format_batch_input(batch, eval_examples, model)
             if append_label:
                 inputs['relation_label'] = labels
 
@@ -209,6 +236,36 @@ def evaluate_retrival(model, eval_examples, batch_size, res_dir):
             for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), sim_score, labels.tolist()):
                 res.append((n, p, prd, lb))
 
+    df = results_to_df(res)
+    df.to_csv(retr_res_path)
+    m = metrics(df, output_dir=res_dir)
+
+    pk = m.precision_at_K(3)
+    best_f1, details = m.precision_recall_curve("pr_curve.png")
+    map = m.MAP_at_K(3)
+
+    summary = "\nprecision@3={}, best_f1 = {}, MAP={}\n".format(pk, best_f1, map)
+    with open(summary_path, 'w') as fout:
+        fout.write(summary)
+        fout.write(str(details))
+    return pk, best_f1, map
+
+
+def evalute_retrivial_for_single_bert(model, eval_examples, batch_size, res_dir):
+    if not os.path.isdir(res_dir):
+        os.makedirs(res_dir)
+    retr_res_path = os.path.join(res_dir, "raw_result.csv")
+    summary_path = os.path.join(res_dir, "summary.txt")
+    retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
+    res = []
+    for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
+        nl_ids = batch[0]
+        pl_ids = batch[1]
+        labels = batch[2]
+        inputs = format_batch_input_for_single_bert(batch, eval_examples, model)
+        sim_score = model.get_sim_score(**inputs)
+        for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), sim_score, labels.tolist()):
+            res.append((n, p, prd, lb))
     df = results_to_df(res)
     df.to_csv(retr_res_path)
     m = metrics(df, output_dir=res_dir)
