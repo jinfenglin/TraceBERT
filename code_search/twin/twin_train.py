@@ -61,13 +61,18 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
 
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
+    cache_file = "cached_twin_random_neg_sample_epoch_{}.dat".format(args.epochs_trained)
     if args.neg_sampling == "random":
-        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
+        if args.overwrite or not os.path.isfile(cache_file):
+            train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
+            torch.save(train_dataloader, cache_file)
+        else:
+            train_dataloader = torch.load(cache_file)
     elif args.neg_sampling == "offline":
         train_dataloader = train_examples.offline_neg_sampling_dataloader(model=model,
                                                                           batch_size=args.per_gpu_train_batch_size)
     elif args.neg_sampling == "online":
-        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size)
+        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size / 2)
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 

@@ -28,7 +28,8 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
             train_dataloader = torch.load(cache_file)
 
     elif args.neg_sampling == "online":
-        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size)
+        # we provide only positive cases and will create negative in the batch processing
+        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size / 2)
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 

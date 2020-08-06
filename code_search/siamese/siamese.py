@@ -87,8 +87,13 @@ def train_with_triplet_neg_sampling(args, model, train_examples: Examples, valid
                                     scheduler, tb_writer, step_bar, skip_n_steps):
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
+    cache_file = "cached_siamese_random_neg_sample_epoch_{}.dat".format(args.epochs_trained)
     if args.neg_sampling == "random":
-        train_dataloader = train_examples.random_triplet_dataloader(batch_size=batch_size)
+        if args.overwrite or not os.path.isfile(cache_file):
+            train_dataloader = train_examples.random_triplet_dataloader(batch_size=batch_size)
+            torch.save(train_dataloader, cache_file)
+        else:
+            train_dataloader = torch.load(cache_file)
     elif args.neg_sampling == "online":
         train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size)
     else:

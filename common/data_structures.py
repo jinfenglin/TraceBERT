@@ -348,7 +348,7 @@ class Examples:
                     pos.append((nl_id, pl_id, 1))
         neg_loader = DataLoader(cand_neg, batch_size=len(batch))
         neg_slots = len(pos)
-        hard_neg_slots = max(1, int(0.1 * neg_slots))
+        hard_neg_slots = max(1, int(0.7 * neg_slots))
         rand_neg_slots = max(0, neg_slots - hard_neg_slots)
         for neg_batch in neg_loader:
             with torch.no_grad():
@@ -375,11 +375,6 @@ class Examples:
             r_label.append(r[2])
         return (torch.Tensor(r_nl), torch.Tensor(r_pl), torch.Tensor(r_label).long())
 
-    def combine_pos_neg_to_triplet(self, pos_cases, neg_cases):
-        res = []
-        for p, n in zip(pos_cases, neg_cases):
-            pass
-        return res
 
     def make_online_triplet_sampling_batch(self, batch: Tuple, model: TwinBert):
         nl_ids = batch[0].tolist()
