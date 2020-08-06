@@ -46,7 +46,8 @@ def load_examples(data_dir, data_type, model: TwinBert, overwrite=False, num_lim
         csn_reader = CodeSearchNetReader(data_dir)
         raw_examples = csn_reader.get_examples(type=data_type, num_limit=num_limit, summary_only=True)
         examples = Examples(raw_examples)
-        examples.update_features(model, multiprocessing.cpu_count())
+        if isinstance(model,TBertT) or isinstance(model, TBertI):
+            examples.update_features(model, multiprocessing.cpu_count())
         logger.info("Saving processed examples into cached file {}".format(cached_file))
         torch.save(examples, cached_file)
     return examples

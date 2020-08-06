@@ -30,8 +30,7 @@ RETRIVE_NEG_SAMP_CACHE = 'retrive_neg_epoch_{}.cache'
 def exclude_and_sample(sample_pool, exclude, num):
     for id in exclude:
         sample_pool.remove(id)
-    # selected = random.sample(list(sample_pool), num)
-    selected = np.random.choice(list(sample_pool), num, replace=False)
+    selected = random.sample(list(sample_pool), num)
     return selected
 
 
@@ -256,7 +255,6 @@ class Examples:
                 pos.append((nl_id, p_id, 1))
             sample_num = len(pos_pl_ids)
             sel_neg_ids = exclude_and_sample(set(self.PL_index.keys()), pos_pl_ids, sample_num)
-            # sel_neg_ids = sample_until_found(self.PL_index.keys(), pos_pl_ids, sample_num)
             for n_id in sel_neg_ids:
                 neg.append((nl_id, n_id, 0))
         sampler = RandomSampler(pos + neg)
