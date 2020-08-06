@@ -17,3 +17,4 @@ evaluation/
 *.log
 debug_output/*
 results
+*.dat

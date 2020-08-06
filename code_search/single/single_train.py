@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+
 sys.path.append("../..")
 
 import torch
@@ -17,8 +18,15 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
                            scheduler, tb_writer, step_bar, skip_n_steps):
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
+    cache_file = "cached_single_random_neg_sample_epoch_{}.dat".format(args.epochs_trained)
+    # save the examples for epoch
     if args.neg_sampling == "random":
-        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
+        if args.overwrite or not os.path.isfile(cache_file):
+            train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
+            torch.save(train_dataloader, cache_file)
+        else:
+            train_dataloader = torch.load(cache_file)
+
     elif args.neg_sampling == "online":
         train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size)
     else:
@@ -91,8 +99,9 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
                 valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
                                                                      args.per_gpu_eval_batch_size,
                                                                      "evaluation/runtime_eval")
-                pk, best_f1, map = evalute_retrivial_for_single_bert(model, valid_examples, args.per_gpu_eval_batch_size,
-                                                     "evaluation/runtime_eval")
+                pk, best_f1, map = evalute_retrivial_for_single_bert(model, valid_examples,
+                                                                     args.per_gpu_eval_batch_size,
+                                                                     "evaluation/runtime_eval")
                 tb_data = {
                     "valid_accuracy": valid_accuracy,
                     "valid_loss": valid_loss,
