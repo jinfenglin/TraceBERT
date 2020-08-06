@@ -201,7 +201,7 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     :return:
     """
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter(log_dir="../runs/{}".format(datetime.datetime.now()))
+        tb_writer = SummaryWriter(log_dir="../runs/{}".format(datetime.datetime.now().strftime("%m-%d %H-%M-%S")))
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     example_num = 2 * len(train_examples)  # 50/50 of pos/neg

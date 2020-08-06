@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def train(args, train_examples, valid_examples, model):
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter(log_dir="../runs/{}".format(datetime.datetime.now()))
+        tb_writer = SummaryWriter(log_dir="../runs/{}".format(datetime.datetime.now().strftime("%m-%d %H-%M-%S")))
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     example_num = len(train_examples)
     epoch_batch_num = example_num / args.train_batch_size
