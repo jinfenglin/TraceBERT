@@ -1,8 +1,8 @@
 python siamese.py \
 --data_dir ../data/code_search_net/python \
 --output_dir ./output \
---per_gpu_train_batch_size 8 \
---per_gpu_eval_batch_size 8 \
+--per_gpu_train_batch_size 4 \
+--per_gpu_eval_batch_size 4 \
 --logging_steps 10 \
 --save_steps 2000 \
 --gradient_accumulation_steps 8 \
