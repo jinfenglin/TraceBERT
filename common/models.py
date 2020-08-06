@@ -46,6 +46,9 @@ class RelationClassifyHeader(nn.Module):
         self.hidden_size = config.hidden_size
         self.code_pooler = AvgPooler(config)
         self.text_pooler = AvgPooler(config)
+
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.output_layer = nn.Linear(config.hidden_size * 3, 2)
 
     def forward(self, code_hidden, text_hidden):
@@ -54,7 +57,13 @@ class RelationClassifyHeader(nn.Module):
         diff_hidden = torch.abs(pool_code_hidden - pool_text_hidden)
         concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
         concated_hidden = torch.cat((concated_hidden, diff_hidden), 1)
-        return self.output_layer(concated_hidden)
+
+        x = self.dropout(concated_hidden)
+        x = self.dense(x)
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.output_layer(x)
+        return x
 
 
 class TBertT(TwinBert):
