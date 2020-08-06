@@ -1,13 +1,12 @@
 import logging
 import os
 import sys
+sys.path.append("../..")
 
 import torch
-from data_structures import Examples
-from utils import save_check_point, format_batch_input_for_single_bert, \
-    write_tensor_board, evaluate_classification, evaluate_retrival, evalute_retrivial_for_single_bert
-
-sys.path.append("../..")
+from common.data_structures import Examples
+from common.utils import save_check_point, format_batch_input_for_single_bert, \
+    write_tensor_board, evaluate_classification, evalute_retrivial_for_single_bert
 
 from code_search.twin.twin_train import get_train_args, init_train_env, load_examples, train
 
