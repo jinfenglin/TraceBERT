@@ -72,7 +72,7 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
         train_dataloader = train_examples.offline_neg_sampling_dataloader(model=model,
                                                                           batch_size=args.per_gpu_train_batch_size)
     elif args.neg_sampling == "online":
-        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size / 2)
+        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=int(batch_size / 2))
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 

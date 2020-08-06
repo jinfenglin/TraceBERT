@@ -29,7 +29,7 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
 
     elif args.neg_sampling == "online":
         # we provide only positive cases and will create negative in the batch processing
-        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=batch_size / 2)
+        train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=int(batch_size / 2))
     else:
         raise Exception("{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
