@@ -47,9 +47,9 @@ class RelationClassifyHeader(nn.Module):
         self.code_pooler = AvgPooler(config)
         self.text_pooler = AvgPooler(config)
 
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dense = nn.Linear(config.hidden_size * 3, config.hidden_size)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.output_layer = nn.Linear(config.hidden_size * 3, 2)
+        self.output_layer = nn.Linear(config.hidden_size, 2)
 
     def forward(self, code_hidden, text_hidden):
         pool_code_hidden = self.code_pooler(code_hidden)

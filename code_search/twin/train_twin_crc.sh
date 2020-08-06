@@ -8,7 +8,7 @@ python twin_train.py \
 --gradient_accumulation_steps 8 \
 --num_train_epochs 8 \
 --learning_rate 4e-5 \
---train_num 100 \
+--train_num 2000 \
 --valid_num 200 \
 --valid_step 100 \
 --neg_sampling online \
