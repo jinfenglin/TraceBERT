@@ -37,7 +37,7 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
             skip_n_steps -= 1
             continue
         if args.neg_sampling == "online":
-            batch = train_examples.make_online_neg_sampling_batch(batch, model)
+            batch = train_examples.make_online_neg_sampling_batch(batch, model, args.hard_ratio)
 
         model.train()
         labels = batch[2].to(model.device)

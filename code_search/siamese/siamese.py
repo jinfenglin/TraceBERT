@@ -114,8 +114,6 @@ def train_with_triplet_neg_sampling(args, model, train_examples: Examples, valid
         pos_sim = outputs['pos_sim']
         neg_sim = outputs['neg_sim']
         tr_ac += int(torch.sum((pos_sim > neg_sim).int()).item())
-        pos_sim.detach()
-        neg_sim.detach()
 
         if args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
