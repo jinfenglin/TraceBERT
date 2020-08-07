@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("../..")
 from code_search.twin.twin_train import get_train_args, init_train_env, load_examples, train_with_neg_sampling, train, \
     logger
 
