@@ -92,6 +92,21 @@ class metrics:
         map = ap_sum / len(group_tops) if len(group_tops) > 0 else 0
         return round(map, 3)
 
+    def MRR(self):
+        if self.group_sort is None:
+            self.group_sort = self.data_frame.groupby(["s_id"]).apply(
+                lambda x: x.sort_values(["pred"], ascending=False)).reset_index(drop=True)
+        group_tops = self.group_sort.groupby('s_id')
+        mrr_sum = 0
+        for s_id, group in group_tops:
+            rank = 0
+            for i, (index, row) in enumerate(group.iterrows()):
+                rank += 1
+                if row['label'] == 1:
+                    mrr_sum += 1.0 / rank
+                    break
+        return mrr_sum/len(group_tops)
+
 
 if __name__ == "__main__":
     test = [

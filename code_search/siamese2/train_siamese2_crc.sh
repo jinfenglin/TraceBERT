@@ -1,4 +1,4 @@
-python single_train.py \
+python siamese2_train.py \
 --data_dir ../data/code_search_net/python \
 --output_dir ./output \
 --per_gpu_train_batch_size 4 \

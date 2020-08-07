@@ -14,8 +14,9 @@ sys.path.append("../../common")
 
 import torch
 from transformers import BertConfig
-from common.models import TBertT
-from common.utils import evaluate_retrival, MODEL_FNAME, load_check_point, results_to_df
+from common.models import TBertT, TBertS
+from common.utils import evaluate_retrival, MODEL_FNAME, load_check_point, results_to_df, \
+    format_batch_input_for_single_bert
 
 
 def get_eval_args():
@@ -39,8 +40,7 @@ def test(args, model, eval_examples, batch_size=1000):
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
     retr_res_path = os.path.join(args.output_dir, "raw_result.csv")
-
-    cache_file = "cached_twin_test.dat"
+    cache_file = "cached_single_test.dat"
     if args.overwrite or not os.path.isfile(cache_file):
         retrival_dataloader = eval_examples.get_batched_retrivial_task_dataloader(batch_size)
         torch.save(retrival_dataloader, cache_file)
@@ -52,13 +52,10 @@ def test(args, model, eval_examples, batch_size=1000):
         nl_ids = batch[0]
         pl_ids = batch[1]
         labels = batch[2]
-        nl_embd, pl_embd = eval_examples.id_pair_to_embd_pair(nl_ids, pl_ids)
-
         with torch.no_grad():
             model.eval()
-            nl_embd = nl_embd.to(model.device)
-            pl_embd = pl_embd.to(model.device)
-            sim_score = model.get_sim_score(text_hidden=nl_embd, code_hidden=pl_embd)
+            inputs = format_batch_input_for_single_bert(batch, eval_examples, model)
+            sim_score = model.get_sim_score(**inputs)
             for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), sim_score, labels.tolist()):
                 res.append((n, p, prd, lb))
 
@@ -70,6 +67,7 @@ def test(args, model, eval_examples, batch_size=1000):
     best_f1, details = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
     mrr = m.MRR()
+
     return pk, best_f1, map, mrr
 
 
@@ -88,7 +86,7 @@ if __name__ == "__main__":
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
 
-    model = TBertT(BertConfig(), args.code_bert)
+    model = TBertS(BertConfig(), args.code_bert)
     if args.model_path and os.path.exists(args.model_path):
         model_path = os.path.join(args.model_path, MODEL_FNAME)
         model.load_state_dict(torch.load(model_path))
@@ -97,14 +95,10 @@ if __name__ == "__main__":
     start_time = time.time()
     test_examples = load_examples(args.data_dir, data_type="test", model=model, overwrite=args.overwrite,
                                   num_limit=args.test_num)
-    test_examples.update_embd(model)
     pk, best_f1, map, mrr = test(args, model, test_examples)
-
     exe_time = time.time() - start_time
-
     summary_path = os.path.join(args.output_dir, "summary.txt")
-    summary = "\nprecision@3={}, best_f1 = {}, MAP={}, MRR={}, time={}\n".format(pk, best_f1, map, mrr, exe_time)
+    summary = "\nprecision@3={}, best_f1 = {}, MAP={}, MRR={}\n".format(pk, best_f1, map, mrr, exe_time)
     with open(summary_path, 'w') as fout:
         fout.write(summary)
-
     logger.info("finished test")

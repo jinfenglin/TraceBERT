@@ -17,7 +17,7 @@ from common.utils import save_check_point, load_check_point, write_tensor_board,
     evaluate_classification, format_batch_input
 from common.data_processing import CodeSearchNetReader
 from common.data_structures import Examples
-from common.models import TwinBert, TBertT, TBertI, TBertS
+from common.models import TwinBert, TBertT, TBertI, TBertS, TBertI2
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +375,8 @@ def init_train_env(args, tbert_type):
         model = TBertT(BertConfig(), args.code_bert)
     elif tbert_type == 'siamese' or tbert_type == "I":
         model = TBertI(BertConfig(), args.code_bert)
+    elif tbert_type == 'siamese2' or tbert_type == "I2":
+        model = TBertI2(BertConfig(), args.code_bert)
     elif tbert_type == 'single' or tbert_type == "S":
         model = TBertS(BertConfig(), args.code_bert)
     else:

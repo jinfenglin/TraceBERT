@@ -212,6 +212,18 @@ class TBertI(TwinBert):
         return self.cbert
 
 
+class TBertI2(TBertT):
+    def __init__(self, config, code_bert):
+        super().__init__(config, code_bert)
+
+        self.ctokneizer = AutoTokenizer.from_pretrained(code_bert)
+        self.cbert = AutoModel.from_pretrained(code_bert)
+
+        self.ntokenizer = self.ctokneizer
+        self.nbert = self.cbert
+        self.cls = RelationClassifyHeader(config)
+
+
 class TBertS(PreTrainedModel):
     def __init__(self, config, code_bert):
         super().__init__(config)
