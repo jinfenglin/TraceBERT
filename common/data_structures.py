@@ -329,7 +329,7 @@ class Examples:
         dataset = DataLoader(pos, batch_size=batch_size, sampler=sampler)
         return dataset
 
-    def make_online_neg_sampling_batch(self, batch: Tuple, model: TwinBert):
+    def make_online_neg_sampling_batch(self, batch: Tuple, model: TwinBert, hard_ratio):
         """
         Convert positive examples into
         :param batch: tuples  containing the positive examples
@@ -348,7 +348,7 @@ class Examples:
                     pos.append((nl_id, pl_id, 1))
         neg_loader = DataLoader(cand_neg, batch_size=len(batch))
         neg_slots = len(pos)
-        hard_neg_slots = max(1, int(0.7 * neg_slots))
+        hard_neg_slots = max(1, int(hard_ratio * neg_slots))
         rand_neg_slots = max(0, neg_slots - hard_neg_slots)
         for neg_batch in neg_loader:
             with torch.no_grad():
@@ -375,7 +375,6 @@ class Examples:
             r_label.append(r[2])
         return (torch.Tensor(r_nl), torch.Tensor(r_pl), torch.Tensor(r_label).long())
 
-
     def make_online_triplet_sampling_batch(self, batch: Tuple, model: TwinBert):
         nl_ids = batch[0].tolist()
         pl_ids = batch[1].tolist()
@@ -396,6 +395,8 @@ class Examples:
                 text_hidden = model.create_nl_embd(inputs['text_ids'], inputs['text_attention_mask'])[0]
                 code_hidden = model.create_pl_embd(inputs['code_ids'], inputs['code_attention_mask'])[0]
                 sim_scores = model.get_sim_score(text_hidden=text_hidden, code_hidden=code_hidden)
+                # del text_hidden
+                # del code_hidden
                 for nl, pl, score in zip(neg_batch[0].tolist(), neg_batch[1].tolist(), sim_scores):
                     neg[nl].append((pl, score))
 

@@ -26,7 +26,6 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
             torch.save(train_dataloader, cache_file)
         else:
             train_dataloader = torch.load(cache_file)
-
     elif args.neg_sampling == "online":
         # we provide only positive cases and will create negative in the batch processing
         train_dataloader = train_examples.online_neg_sampling_dataloader(batch_size=int(batch_size / 2))
@@ -118,7 +117,7 @@ def train_single_iteration(args, model, train_examples: Examples, valid_examples
 
 def main():
     args = get_train_args()
-    model = init_train_env(args, tbert_type='S')
+    model = init_train_env(args, tbert_type='single')
     valid_examples = load_examples(args.data_dir, data_type="valid", model=model, num_limit=args.valid_num,
                                    overwrite=args.overwrite)
     train_examples = load_examples(args.data_dir, data_type="train", model=model, num_limit=args.train_num,

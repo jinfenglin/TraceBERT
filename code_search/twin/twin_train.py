@@ -82,7 +82,7 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
             skip_n_steps -= 1
             continue
         if args.neg_sampling == "online":
-            batch = train_examples.make_online_neg_sampling_batch(batch, model)
+            batch = train_examples.make_online_neg_sampling_batch(batch, model, args.hard_ratio)
         model.train()
         labels = batch[2].to(model.device)
         inputs = format_batch_input(batch, train_examples, model)
@@ -190,6 +190,12 @@ def log_train_info(args, example_num, train_steps):
     logger.info("  Total optimization steps = %d", train_steps)
 
 
+def get_exp_name(args):
+    exp_name = "{}_{}_{}"
+    time = datetime.datetime.now().strftime("%m-%d %H-%M-%S")
+    return exp_name.format(args.tbert_type, args.neg_sampling, time)
+
+
 def train(args, train_examples, valid_examples, model, train_iter_method):
     """
 
@@ -200,8 +206,9 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     :param train_iter_method: method use for training in each iteration
     :return:
     """
+    exp_name = get_exp_name(args)
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter(log_dir="../runs/{}".format(datetime.datetime.now().strftime("%m-%d %H-%M-%S")))
+        tb_writer = SummaryWriter(log_dir="../runs/{}".format(exp_name))
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     example_num = 2 * len(train_examples)  # 50/50 of pos/neg
@@ -310,6 +317,10 @@ def get_train_args():
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
+    parser.add_argument(
+        "--hard_ratio", default=0.5, type=float,
+        help="The ration of hard negative examples in a batch during negative sample mining"
+    )
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
     parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offline'],
                         help="Negative sampling strategy we apply for constructing dataset. ")
@@ -328,7 +339,7 @@ def get_train_args():
     return args
 
 
-def init_train_env(args, tbert_type='classify'):
+def init_train_env(args, tbert_type):
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -368,6 +379,7 @@ def init_train_env(args, tbert_type='classify'):
         model = TBertS(BertConfig(), args.code_bert)
     else:
         raise Exception("TBERT type not found")
+    args.tbert_type = tbert_type
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
