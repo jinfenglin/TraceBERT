@@ -12,5 +12,5 @@ cd $root
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/siamese2/task.log &
 pip3 install -r /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/requirement.txt
-chmod +x ./train_siamese2_crc_radom.sh
+chmod +x ./train_siamese2_crc_radnom.sh
 ./train_siamese2_crc_random.sh
