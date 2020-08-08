@@ -199,21 +199,20 @@ class Examples:
         dataset = DataLoader(res, batch_size=batch_size)
         return dataset
 
-    def get_batched_retrivial_task_dataloader(self, batch_size):
+    def get_chunked_retrivial_task_examples(self, chunk_size = 1000):
         rels = []
         for nid in self.rel_index:
             for pid in self.rel_index[nid]:
                 rels.append((nid, pid))
-        rel_dl = DataLoader(rels, batch_size=batch_size)
+        rel_dl = DataLoader(rels, batch_size=chunk_size)
         examples = []
         for batch in rel_dl:
             nids, pids = batch[0].tolist(), batch[1].tolist()
-            nid = nids[0]
-            for pid in pids:
-                label = 1 if self.__is_positive_case(nid, pid) else 0
-                examples.append((nid,pid,label))
-        dataset = DataLoader(examples, batch_size=batch_size)
-        return dataset
+            for nid in nids:
+                for pid in pids:
+                    label = 1 if self.__is_positive_case(nid, pid) else 0
+                    examples.append((nid,pid,label))
+        return examples
 
     def id_pair_to_embd_pair(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) -> Tuple[Tensor, Tensor]:
         """Convert id pairs into embdding pairs"""

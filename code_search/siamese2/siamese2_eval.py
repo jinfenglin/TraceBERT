@@ -9,12 +9,13 @@ sys.path.append("../../common")
 from tqdm import tqdm
 
 from code_search.twin.twin_train import load_examples
+from common.metrices import metrics
 
 import torch
 from transformers import BertConfig
-from common.models import TBertS
-from common.metrices import metrics
-from common.utils import MODEL_FNAME, results_to_df, format_batch_input_for_single_bert
+from common.models import TBertI2
+from common.utils import MODEL_FNAME, results_to_df, \
+    format_batch_input_for_single_bert
 
 
 def get_eval_args():
@@ -78,7 +79,7 @@ if __name__ == "__main__":
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
 
-    model = TBertS(BertConfig(), args.code_bert)
+    model = TBertI2(BertConfig(), args.code_bert)
     if args.model_path and os.path.exists(args.model_path):
         model_path = os.path.join(args.model_path, MODEL_FNAME)
         model.load_state_dict(torch.load(model_path))
@@ -90,4 +91,3 @@ if __name__ == "__main__":
     m = test(args, model, test_examples)
     exe_time = time.time() - start_time
     m.write_summary(exe_time)
-    logger.info("finished test")

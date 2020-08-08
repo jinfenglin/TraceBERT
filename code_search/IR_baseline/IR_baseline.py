@@ -1,24 +1,29 @@
 import os
-import random
 import re
+import sys
+import time
 from collections import defaultdict
 from functools import partial
 from multiprocessing.pool import Pool
 from os import cpu_count
+
+sys.path.append("../..")
+import torch
 from nltk.tokenize import word_tokenize
 
 import many_stop_words
 from pandas import DataFrame
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import BertConfig
 
-from common.data_processing import CodeSearchNetReader
-from metrices import metrics
-from model2.TBert_classify_train import load_examples
-from model2.VSM_baseline.IRs import VSM
+from code_search.IR_baseline.IRs import VSM, LDA, LSI
+from code_search.twin.twin_eval import get_eval_args
+from code_search.twin.twin_train import load_examples
+from common.metrices import metrics
 import pandas as pd
 
-from models import TBertT
+from common.models import TBertT
 
 stop_words = many_stop_words.get_stop_words('en')
 
@@ -225,43 +230,51 @@ def debug_instnace(instances):
 
 
 if __name__ == "__main__":
-    vsm_res_file = "vsm_res.csv"
-    override = True
-    valid_num = 200
-    if not os.path.isfile(vsm_res_file) or override:
-        data_dir = "../data/code_search_net/python"
-        model = TBertT(BertConfig())
-        valid_examples = load_examples(data_dir, data_type="valid", model=model, num_limit=valid_num,
-                                       overwrite=override)
-        instances = valid_examples.get_retrivial_task_dataloader(batch_size=8).dataset
-        doc_tokens = [x['tokens'].split() for x in valid_examples.PL_index.values()]
-        vsm = VSM()
-        vsm.build_model(doc_tokens)
+    exe_time = 0
+    args = get_eval_args()
+    out_root = args.output_dir
+    args.output_dir = os.path.join(args.output_dir, args.model_path)
+    if not os.path.isdir(args.output_dir):
+        os.makedirs(args.output_dir)
+    data_dir = "../data/code_search_net/python"
+    model = TBertT(BertConfig(), args.code_bert)
+    test_examples = load_examples(args.data_dir, data_type="test", model=model, overwrite=args.overwrite,
+                                  num_limit=args.test_num)
 
-        res = []
-        for i, ins in tqdm(enumerate(instances)):
-            s_id = ins[0]
-            t_id = ins[1]
-            label = ins[2]
-            pred = vsm.get_link_scores(valid_examples.NL_index[ins[0]], valid_examples.PL_index[ins[1]])
-            res.append((s_id, t_id, pred, label))
-        df = pd.DataFrame()
-        df['s_id'] = [x[0] for x in res]
-        df['t_id'] = [x[1] for x in res]
-        df['pred'] = [x[2] for x in res]
-        df['label'] = [x[3] for x in res]
-        df.to_csv(vsm_res_file)
+    doc_tokens = [x['tokens'].split() for x in test_examples.PL_index.values()]
+
+    print("building model {}".format(args.model_path))
+    if args.model_path == "VSM":
+        model = VSM()
+        model.build_model(doc_tokens)
+    elif args.model_path == "LDA":
+        model = LDA()
+        model.build_model(doc_tokens, num_topics=200, passes=500)
+    elif args.model_path == "LSI":
+        model = LSI()
+        model.build_model(doc_tokens, num_topics=200)
+
+    cache_file = os.path.join(out_root, "cached_test.dat")
+    if args.overwrite or not os.path.isfile(cache_file):
+        chunked_retrivial_examples = test_examples.get_chunked_retrivial_task_examples(chunk_size=1000)
+        torch.save(chunked_retrivial_examples, cache_file)
     else:
-        df = pd.read_csv(vsm_res_file)
+        chunked_retrivial_examples = torch.load(cache_file)
+    retrival_dataloader = DataLoader(chunked_retrivial_examples, batch_size=1000)
+    start_time = time.time()
+    res = []
+    for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
+        for s_id, t_id, label in zip(batch[0].tolist(), batch[1].tolist(), batch[2].tolist()):
+            pred = model.get_link_scores(test_examples.NL_index[s_id], test_examples.PL_index[t_id])
+            res.append((s_id, t_id, pred, label))
+    df = pd.DataFrame()
+    df['s_id'] = [x[0] for x in res]
+    df['t_id'] = [x[1] for x in res]
+    df['pred'] = [x[2] for x in res]
+    df['label'] = [x[3] for x in res]
+    exe_time = time.time() - start_time
 
-    m = metrics(df, output_dir="/")
-    pk = m.precision_at_K(3)
-    best_f1, details = m.precision_recall_curve("pr_curve.png")
-    map = m.MAP_at_K(3)
-
-    summary = "\nprecision@3={}, best_f1 = {}, MAP={}\n".format(pk, best_f1, map)
-    print(summary)
-    # with open(summary_path, 'w') as fout:
-    #     fout.write(summary)
-    #     fout.write(str(details))
-    # return pk, best_f1, map
+    raw_res_file = os.path.join(args.output_dir, "raw_res.csv")
+    df.to_csv(raw_res_file)
+    m = metrics(df, output_dir=args.output_dir)
+    m.write_summary(exe_time)

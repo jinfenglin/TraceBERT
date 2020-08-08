@@ -4,18 +4,17 @@ import os
 import sys
 import time
 
-from tqdm import tqdm
-
-from code_search.twin.twin_train import load_examples
-from metrices import metrics
-
 sys.path.append("..")
 sys.path.append("../../common")
+
+from tqdm import tqdm
+from code_search.twin.twin_train import load_examples
+from common.metrices import metrics
 
 import torch
 from transformers import BertConfig
 from common.models import TBertT
-from common.utils import evaluate_retrival, MODEL_FNAME, load_check_point, results_to_df
+from common.utils import MODEL_FNAME, results_to_df
 
 
 def get_eval_args():
@@ -23,7 +22,7 @@ def get_eval_args():
     parser.add_argument(
         "--data_dir", default="../data/code_search_net/python", type=str,
         help="The input data dir. Should contain the .json files for the task.")
-    parser.add_argument("--model_path", default="./output/final_model", help="The model to evaluate")
+    parser.add_argument("--model_path", default="VSM", choices=['VSM', 'LDA', 'LSI'], help="The model to evaluate")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
     parser.add_argument("--test_num", type=int,
                         help="The number of true links used for evaluation. The retrival task is build around the true links")
@@ -42,7 +41,7 @@ def test(args, model, eval_examples, batch_size=1000):
 
     cache_file = "cached_twin_test.dat"
     if args.overwrite or not os.path.isfile(cache_file):
-        retrival_dataloader = eval_examples.get_batched_retrivial_task_dataloader(batch_size)
+        retrival_dataloader = eval_examples.get_chunked_retrivial_task_examples(batch_size)
         torch.save(retrival_dataloader, cache_file)
     else:
         retrival_dataloader = torch.load(cache_file)
@@ -65,12 +64,7 @@ def test(args, model, eval_examples, batch_size=1000):
     df = results_to_df(res)
     df.to_csv(retr_res_path)
     m = metrics(df, output_dir=args.output_dir)
-
-    pk = m.precision_at_K(3)
-    best_f1, details = m.precision_recall_curve("pr_curve.png")
-    map = m.MAP_at_K(3)
-    mrr = m.MRR()
-    return pk, best_f1, map, mrr
+    return m
 
 
 if __name__ == "__main__":
@@ -98,13 +92,7 @@ if __name__ == "__main__":
     test_examples = load_examples(args.data_dir, data_type="test", model=model, overwrite=args.overwrite,
                                   num_limit=args.test_num)
     test_examples.update_embd(model)
-    pk, best_f1, map, mrr = test(args, model, test_examples)
-
+    m = test(args, model, test_examples)
     exe_time = time.time() - start_time
-
-    summary_path = os.path.join(args.output_dir, "summary.txt")
-    summary = "\nprecision@3={}, best_f1 = {}, MAP={}, MRR={}, time={}\n".format(pk, best_f1, map, mrr, exe_time)
-    with open(summary_path, 'w') as fout:
-        fout.write(summary)
-
+    m.write_summary(exe_time)
     logger.info("finished test")

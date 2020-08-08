@@ -21,6 +21,9 @@ class metrics:
     def f1_score(self, precision, recall):
         return 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0
 
+    def f2_score(self, precision, recall):
+        return 5 * precision * recall / (4 * precision + recall) if precision + recall > 0 else 0
+
     def f1_details(self, threshold):
         "Return ture positive (tp), fp, tn,fn "
         f_name = "f1_details"
@@ -45,12 +48,16 @@ class metrics:
     def precision_recall_curve(self, fig_name):
         precision, recall, thresholds = precision_recall_curve(self.label, self.pred)
         max_f1 = 0
+        max_f2 = 0
         max_threshold = 0
         for p, r, tr in zip(precision, recall, thresholds):
             f1 = self.f1_score(p, r)
+            f2 = self.f2_score(p, r)
             if f1 >= max_f1:
                 max_f1 = f1
                 max_threshold = tr
+            if f2 >= max_f2:
+                max_f2 = f2
         viz = PrecisionRecallDisplay(
             precision=precision, recall=recall)
         viz.plot()
@@ -59,7 +66,7 @@ class metrics:
             plt.savefig(fig_path)
             plt.close()
         detail = self.f1_details(max_threshold)
-        return round(max_f1, 3), detail
+        return round(max_f1, 3), round(max_f2, 3), detail
 
     def precision_at_K(self, k=1):
         if self.group_sort is None:
@@ -105,7 +112,44 @@ class metrics:
                 if row['label'] == 1:
                     mrr_sum += 1.0 / rank
                     break
-        return mrr_sum/len(group_tops)
+        return mrr_sum / len(group_tops)
+
+    def get_all_metrices(self):
+        pk3 = self.precision_at_K(3)
+        pk2 = self.precision_at_K(2)
+        pk1 = self.precision_at_K(1)
+
+        best_f1, best_f2, details = self.precision_recall_curve("pr_curve.png")
+        map = self.MAP_at_K(3)
+        mrr = self.MRR()
+        return {
+            'pk3': pk3,
+            'pk2': pk2,
+            'pk1': pk1,
+            'f1': best_f1,
+            'f2': best_f2,
+            'map': map,
+            'mrr': mrr,
+            'details': details
+        }
+
+    def write_summary(self,exe_time):
+        summary_path = os.path.join(self.output_dir, "summary.txt")
+        res = self.get_all_metrices()
+        pk3, pk2, pk1 = res['pk3'], res['pk2'], res['pk1']
+        best_f1, best_f2, details = res['f1'], res['f2'], res['details']
+        map, mrr = res['map'], res['mrr']
+        summary = "\npk3={}, pk2={},pk1={} best_f1 = {}, bets_f2={}, MAP={}, MRR={}, exe_time={}\n".format(pk3, pk2,
+                                                                                                           pk1,
+                                                                                                           best_f1,
+                                                                                                           best_f2,
+                                                                                                           map,
+                                                                                                           mrr,
+                                                                                                           exe_time)
+        with open(summary_path, 'w') as fout:
+            fout.write(summary)
+            fout.write(str(details))
+        print(summary)
 
 
 if __name__ == "__main__":
