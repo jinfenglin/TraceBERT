@@ -9,6 +9,7 @@ click==7.1.2
 configparser==5.0.0
 cycler==0.10.0
 Cython==0.29.14
+Deprecated==1.2.10
 docker-pycreds==0.4.0
 docutils==0.15.2
 filelock==3.0.12
@@ -41,6 +42,8 @@ protobuf==3.12.0
 psutil==5.7.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
+PyGithub==1.52
+PyJWT==1.7.1
 pyparsing==2.4.7
 python-dateutil==2.8.1
 pytz==2020.1
@@ -65,6 +68,7 @@ subprocess32==3.5.4
 tensorboard==2.2.1
 tensorboard-plugin-wit==1.6.0.post3
 threadpoolctl==2.1.0
+tokenizer==2.1.0
 tokenizers==0.7.0
 torch==1.5.0
 torchvision==0.6.0
@@ -75,4 +79,5 @@ wandb==0.8.35
 watchdog==0.10.2
 Werkzeug==1.0.1
 wget==3.2
+wrapt==1.12.1
 zipp==3.1.0
