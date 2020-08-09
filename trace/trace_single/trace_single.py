@@ -1,12 +1,16 @@
 import logging
 import multiprocessing
 import os
+import sys
+
+sys.path.append("..")
+sys.path.append("../..")
 
 from code_search.single.single_train import train_single_iteration
 from code_search.twin.twin_train import get_train_args, init_train_env, train
 from data_process import __read_artifacts
-from data_structures import Examples
-from models import TBertT, TBertI, TBertI2
+from common.data_structures import Examples
+from common.models import TBertT, TBertI, TBertI2
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +62,7 @@ def main():
     train_examples = load_examples(valid_dir, model=model, num_limit=args.train_num)
     train(args, train_examples, valid_examples, model, train_single_iteration)
     logger.info("Training finished")
+
 
 if __name__ == "__main__":
     main()

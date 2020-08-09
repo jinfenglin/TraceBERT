@@ -1,6 +1,5 @@
 import configparser
 import logging
-import math
 import os
 import random
 import re
@@ -9,9 +8,10 @@ import sys
 import pandas as pd
 from tqdm import tqdm
 
+sys.path.append("..")
 sys.path.append("../..")
 
-from trace.git_repo_collector import GitRepoCollector, Commit, Issue
+from git_repo_collector import GitRepoCollector, Commit, Issue
 from nltk.tokenize import word_tokenize
 
 
