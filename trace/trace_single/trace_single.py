@@ -58,8 +58,8 @@ def main():
     model = init_train_env(args, tbert_type='single')
     train_dir = os.path.join(args.data_dir, "train")
     valid_dir = os.path.join(args.data_dir, "valid")
-    valid_examples = load_examples(train_dir, model=model, num_limit=args.valid_num)
-    train_examples = load_examples(valid_dir, model=model, num_limit=args.train_num)
+    train_examples = load_examples(train_dir, model=model, num_limit=args.train_num)
+    valid_examples = load_examples(valid_dir, model=model, num_limit=args.valid_num)
     train(args, train_examples, valid_examples, model, train_single_iteration)
     logger.info("Training finished")
 
