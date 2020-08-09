@@ -18,3 +18,4 @@ evaluation/
 debug_output/*
 results
 *.dat
+credentials.cfg

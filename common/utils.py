@@ -135,14 +135,20 @@ def save_check_point(model, ckpt_dir, args, optimizer, scheduler):
 
 
 def load_check_point(model, ckpt_dir, optimizer, scheduler):
-    logger.info("Loading checkpoint from {}".format(ckpt_dir))
+    logger.info(
+        "Loading checkpoint from {}, remove optimizer and scheduler if you do not want to load them".format(ckpt_dir))
     optmz_path = os.path.join(ckpt_dir, OPTIMIZER_FNAME)
     sched_path = os.path.join(ckpt_dir, SCHED_FNAME)
     model_path = os.path.join(ckpt_dir, MODEL_FNAME)
 
     model.load_state_dict(torch.load(model_path))
-    optimizer.load_state_dict(torch.load(optmz_path))
-    scheduler.load_state_dict(torch.load(sched_path))
+    if os.path.isfile(optmz_path):
+        logger.info("Loading optimizer...")
+        optimizer.load_state_dict(torch.load(optmz_path))
+    if os.path.isfile(sched_path):
+        logger.info("Loading scheduler...")
+        scheduler.load_state_dict(torch.load(sched_path))
+
     args = torch.load(os.path.join(ckpt_dir, ARG_FNAME))
     return {'model': model, "optimizer": optimizer, "scheduler": scheduler, "args": args}
 
@@ -241,10 +247,10 @@ def evaluate_retrival(model, eval_examples, batch_size, res_dir):
     m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
-    best_f1, details = m.precision_recall_curve("pr_curve.png")
+    best_f1, best_f2, details = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
-    summary = "\nprecision@3={}, best_f1 = {}, MAP={}\n".format(pk, best_f1, map)
+    summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
     with open(summary_path, 'w') as fout:
         fout.write(summary)
         fout.write(str(details))
@@ -271,10 +277,10 @@ def evalute_retrivial_for_single_bert(model, eval_examples, batch_size, res_dir)
     m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
-    best_f1, details = m.precision_recall_curve("pr_curve.png")
+    best_f1, best_f2, details = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
-    summary = "\nprecision@3={}, best_f1 = {}, MAP={}\n".format(pk, best_f1, map)
+    summary = "\nprecision@3={}, best_f1 = {}, best_f2={}, MAP={}\n".format(pk, best_f1, best_f2, map)
     with open(summary_path, 'w') as fout:
         fout.write(summary)
         fout.write(str(details))

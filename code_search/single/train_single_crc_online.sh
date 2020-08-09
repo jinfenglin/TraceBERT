@@ -9,5 +9,5 @@ python single_train.py \
 --num_train_epochs 8 \
 --learning_rate 4e-5 \
 --valid_num 200 \
---valid_step 100 \
+--valid_step 1000 \
 --neg_sampling online
