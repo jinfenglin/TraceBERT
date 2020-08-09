@@ -140,6 +140,7 @@ def load_check_point(model, ckpt_dir, optimizer, scheduler):
     optmz_path = os.path.join(ckpt_dir, OPTIMIZER_FNAME)
     sched_path = os.path.join(ckpt_dir, SCHED_FNAME)
     model_path = os.path.join(ckpt_dir, MODEL_FNAME)
+    arg_path = os.path.join(ckpt_dir, ARG_FNAME)
 
     model.load_state_dict(torch.load(model_path))
     if os.path.isfile(optmz_path):
@@ -149,7 +150,9 @@ def load_check_point(model, ckpt_dir, optimizer, scheduler):
         logger.info("Loading scheduler...")
         scheduler.load_state_dict(torch.load(sched_path))
 
-    args = torch.load(os.path.join(ckpt_dir, ARG_FNAME))
+    args = None
+    if os.path.isfile(arg_path):
+        args = torch.load(os.path.join(ckpt_dir, ARG_FNAME))
     return {'model': model, "optimizer": optimizer, "scheduler": scheduler, "args": args}
 
 

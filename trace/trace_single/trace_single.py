@@ -59,6 +59,5 @@ def main():
     train(args, train_examples, valid_examples, model, train_single_iteration)
     logger.info("Training finished")
 
-
 if __name__ == "__main__":
     main()

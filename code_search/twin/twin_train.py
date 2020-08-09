@@ -192,9 +192,13 @@ def log_train_info(args, example_num, train_steps):
 
 
 def get_exp_name(args):
-    exp_name = "{}_{}_{}"
+    exp_name = "{}_{}_{}_{}"
     time = datetime.datetime.now().strftime("%m-%d %H-%M-%S")
-    return exp_name.format(args.tbert_type, args.neg_sampling, time)
+
+    base_model = ""
+    if args.model_path:
+        base_model = os.path.basename(args.model_path)
+    return exp_name.format(args.tbert_type, args.neg_sampling, time, base_model)
 
 
 def train(args, train_examples, valid_examples, model, train_iter_method):
@@ -244,7 +248,10 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     args.steps_trained_in_current_epoch = 0
     if args.model_path and os.path.exists(args.model_path):
         ckpt = load_check_point(model, args.model_path, optimizer, scheduler)
-        model, optimizer, scheduler, args = ckpt["model"], ckpt['optimizer'], ckpt['scheduler'], ckpt['args']
+        model = ckpt["model"]
+        optimizer = ckpt['optimizer'] if ckpt['optimizer'] else optimizer
+        scheduler = ckpt['scheduler'] if ckpt['scheduler'] else scheduler
+        args = ckpt['args'] if ckpt['args'] else args
         logger.info("  Continuing training from checkpoint, will skip to saved global_step")
         logger.info("  Continuing training from epoch {}, global step {}".format(args.epochs_trained, args.global_step))
     else:
