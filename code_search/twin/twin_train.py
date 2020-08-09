@@ -143,9 +143,10 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
                 valid_examples.update_embd(model)
                 valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
                                                                      args.per_gpu_eval_batch_size,
-                                                                     "evaluation/runtime_eval")
+                                                                     "evaluation/{}/runtime_eval".format(
+                                                                         args.neg_sampling))
                 pk, best_f1, map = evaluate_retrival(model, valid_examples, args.per_gpu_eval_batch_size,
-                                                     "evaluation/runtime_eval")
+                                                     "evaluation/{}/runtime_eval".format(args.neg_sampling))
                 tb_data = {
                     "valid_accuracy": valid_accuracy,
                     "valid_loss": valid_loss,
@@ -207,6 +208,7 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     :return:
     """
     exp_name = get_exp_name(args)
+    args.output_dir = os.path.join(args.output_dir, exp_name)
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter(log_dir="../runs/{}".format(exp_name))
 

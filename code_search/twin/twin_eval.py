@@ -22,7 +22,7 @@ def get_eval_args():
     parser.add_argument(
         "--data_dir", default="../data/code_search_net/python", type=str,
         help="The input data dir. Should contain the .json files for the task.")
-    parser.add_argument("--model_path", default="VSM", choices=['VSM', 'LDA', 'LSI'], help="The model to evaluate")
+    parser.add_argument("--model_path", default=None, help="The model to evaluate")
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
     parser.add_argument("--test_num", type=int,
                         help="The number of true links used for evaluation. The retrival task is build around the true links")
@@ -30,7 +30,9 @@ def get_eval_args():
     parser.add_argument("--output_dir", default="./evaluation/test", help="directory to store the results")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--code_bert", default="microsoft/codebert-base", help="the base bert")
+    parser.add_argument("--exp_name", help="id for this run of experiment")
     args = parser.parse_args()
+    args.output_dir = os.path.join(args.output_dir, args.exp_name)
     return args
 
 
