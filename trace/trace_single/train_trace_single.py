@@ -42,7 +42,7 @@ def read_OSS_examples(data_dir):
 def load_examples(data_dir, model, num_limit):
     cache_dir = os.path.join(data_dir, "cache")
     if not os.path.isdir(cache_dir):
-        os.mkdir(cache_dir)
+        os.makedirs(cache_dir)
     logger.info("Creating examples from dataset file at {}".format(data_dir))
     raw_examples = read_OSS_examples(data_dir)
     if num_limit:
