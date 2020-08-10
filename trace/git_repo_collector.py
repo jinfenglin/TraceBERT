@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class Issue:
     def __init__(self, issue_id: str, desc: str, comments: str, create_time, close_time):
         self.issue_id = issue_id
-        # self.desc = desc if not pd.isnull(desc) else ""
-        self.desc = desc
+        self.desc = "" if pd.isnull(desc) else desc
+        # self.desc = desc
         self.comments = comments
         self.create_time = create_time
         self.close_time = close_time
