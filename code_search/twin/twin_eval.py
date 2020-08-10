@@ -4,6 +4,8 @@ import os
 import sys
 import time
 
+from torch.utils.data import DataLoader
+
 sys.path.append("..")
 sys.path.append("../../common")
 
@@ -36,18 +38,17 @@ def get_eval_args():
     return args
 
 
-def test(args, model, eval_examples, batch_size=1000):
+def test(args, model, eval_examples, cache_file, batch_size=1000):
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
     retr_res_path = os.path.join(args.output_dir, "raw_result.csv")
 
-    cache_file = "cached_twin_test.dat"
     if args.overwrite or not os.path.isfile(cache_file):
-        retrival_dataloader = eval_examples.get_chunked_retrivial_task_examples(batch_size)
-        torch.save(retrival_dataloader, cache_file)
+        chunked_retrivial_examples = eval_examples.get_chunked_retrivial_task_examples(batch_size)
+        torch.save(chunked_retrivial_examples, cache_file)
     else:
-        retrival_dataloader = torch.load(cache_file)
-
+        chunked_retrivial_examples = torch.load(cache_file)
+    retrival_dataloader = DataLoader(chunked_retrivial_examples, batch_size=args.per_gpu_eval_batch_size)
     res = []
     for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
         nl_ids = batch[0]
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     test_examples = load_examples(args.data_dir, data_type="test", model=model, overwrite=args.overwrite,
                                   num_limit=args.test_num)
     test_examples.update_embd(model)
-    m = test(args, model, test_examples)
+    m = test(args, model, test_examples, "cached_twin_test")
     exe_time = time.time() - start_time
     m.write_summary(exe_time)
     logger.info("finished test")

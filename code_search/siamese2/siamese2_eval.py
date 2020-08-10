@@ -4,51 +4,19 @@ import os
 import sys
 import time
 
-from code_search.twin.twin_eval import get_eval_args
+from torch.utils.data import DataLoader
+
+from code_search.twin.twin_eval import get_eval_args, test
 
 sys.path.append("..")
 sys.path.append("../../common")
-from tqdm import tqdm
 
 from code_search.twin.twin_train import load_examples
-from common.metrices import metrics
 
 import torch
 from transformers import BertConfig
 from common.models import TBertI2
-from common.utils import MODEL_FNAME, results_to_df, \
-    format_batch_input_for_single_bert
-
-
-
-def test(args, model, eval_examples, batch_size=1000):
-    if not os.path.isdir(args.output_dir):
-        os.makedirs(args.output_dir)
-    retr_res_path = os.path.join(args.output_dir, "raw_result.csv")
-    cache_file = "cached_single_test.dat"
-    if args.overwrite or not os.path.isfile(cache_file):
-        retrival_dataloader = eval_examples.get_chunked_retrivial_task_examples(batch_size)
-        torch.save(retrival_dataloader, cache_file)
-    else:
-        retrival_dataloader = torch.load(cache_file)
-
-    res = []
-    for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
-        nl_ids = batch[0]
-        pl_ids = batch[1]
-        labels = batch[2]
-        with torch.no_grad():
-            model.eval()
-            inputs = format_batch_input_for_single_bert(batch, eval_examples, model)
-            sim_score = model.get_sim_score(**inputs)
-            for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), sim_score, labels.tolist()):
-                res.append((n, p, prd, lb))
-
-    df = results_to_df(res)
-    df.to_csv(retr_res_path)
-    m = metrics(df, output_dir=args.output_dir)
-    return m
-
+from common.utils import MODEL_FNAME
 
 if __name__ == "__main__":
     args = get_eval_args()
@@ -74,6 +42,6 @@ if __name__ == "__main__":
     start_time = time.time()
     test_examples = load_examples(args.data_dir, data_type="test", model=model, overwrite=args.overwrite,
                                   num_limit=args.test_num)
-    m = test(args, model, test_examples)
+    m = test(args, model, test_examples, "cached_siamese2_test")
     exe_time = time.time() - start_time
     m.write_summary(exe_time)
