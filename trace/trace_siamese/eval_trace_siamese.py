@@ -6,7 +6,7 @@ import time
 import torch
 from transformers import BertConfig
 
-from models import TBertT, TBertI2
+from models import TBertI2
 
 sys.path.append("..")
 sys.path.append("../../")

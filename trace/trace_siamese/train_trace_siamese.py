@@ -1,9 +1,8 @@
 import logging
-import multiprocessing
 import os
 import sys
 
-from trace_single.train_trace_single import load_examples
+
 
 sys.path.append("..")
 sys.path.append("../..")
@@ -11,6 +10,7 @@ sys.path.append("../..")
 from code_search.twin.twin_train import get_train_args, init_train_env
 from code_search.twin.twin_train import train_with_neg_sampling, train, \
     logger
+from trace_single.train_trace_single import load_examples
 
 logger = logging.getLogger(__name__)
 
