@@ -12,7 +12,7 @@ cd $root
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 #pip3 install -r /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/requirement.txt
 
-python trace_single.py \
+python train_trace_single.py \
 --data_dir ../data/git_data/dbcli/pgcli \
 --output_dir ./output \
 --per_gpu_train_batch_size 4 \

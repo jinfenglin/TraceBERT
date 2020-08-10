@@ -13,7 +13,7 @@ sys.path.append("../../common")
 from code_search.single.single_eval import test
 from code_search.twin.twin_eval import get_eval_args
 from models import TBertS
-from trace_single.trace_single import load_examples
+from trace_single.train_trace_single import load_examples
 from utils import MODEL_FNAME
 
 if __name__ == "__main__":
@@ -26,12 +26,14 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     if not os.path.isdir(args.output_dir):
-        os.mkdir(args.output_dir)
+        os.makedirs(args.output_dir)
 
     model = TBertS(BertConfig(), args.code_bert)
     if args.model_path and os.path.exists(args.model_path):
         model_path = os.path.join(args.model_path, MODEL_FNAME)
         model.load_state_dict(torch.load(model_path))
+    else:
+        raise Exception("evaluation model not found")
     logger.info("model loaded")
 
     start_time = time.time()
