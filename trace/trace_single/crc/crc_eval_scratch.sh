@@ -6,7 +6,7 @@
 module load python/3.7.3
 module load pytorch/1.1.0
 
-set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/single"
+set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/trace/trace_single"
 cd $root
 
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"

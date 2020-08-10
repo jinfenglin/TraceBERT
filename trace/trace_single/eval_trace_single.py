@@ -1,9 +1,14 @@
 import logging
 import os
+import sys
 import time
 
 import torch
 from transformers import BertConfig
+
+sys.path.append("..")
+sys.path.append("../../")
+sys.path.append("../../common")
 
 from code_search.single.single_eval import test
 from code_search.twin.twin_eval import get_eval_args
