@@ -40,6 +40,7 @@ if __name__ == "__main__":
     start_time = time.time()
     test_dir = os.path.join(args.data_dir, "test")
     test_examples = load_examples(test_dir, model=model, num_limit=args.test_num)
+    test_examples.update_embd(model)
     m = test(args, model, test_examples, cache_file="cached_siamese_test.dat")
     exe_time = time.time() - start_time
     m.write_summary(exe_time)
