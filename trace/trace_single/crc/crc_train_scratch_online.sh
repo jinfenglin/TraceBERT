@@ -1,7 +1,7 @@
 #!/bin/csh
 #$ -l gpu_card=1
 #$ -q gpu     # Specify queue (use ‘debug’ for development)
-#$ -N SO_        # Single + Random + from scratch
+#$ -N TT_SO        # Single + Random + from scratch
 
 module load python/3.7.3
 module load pytorch/1.1.0
