@@ -14,7 +14,7 @@ source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
 python train_trace_single.py \
 --data_dir ../data/git_data/dbcli/pgcli \
---model_path ../pretrained_model/single_random_18000 \
+--model_path ../pretrained_model/single_online_34000 \
 --output_dir ./output \
 --per_gpu_train_batch_size 4 \
 --per_gpu_eval_batch_size 4 \
