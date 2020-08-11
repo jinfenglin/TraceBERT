@@ -15,6 +15,7 @@ fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/single/task.log
 
 python eval_trace_single.py \
 --data_dir ../data/git_data/dbcli/pgcli \
---model_path ./output/post_SO_34k/final_model \
+#--model_path ./output/post_SO_34k/final_model \
+--model_path ../pretrained_model/single_online_34000 \
 --per_gpu_eval_batch_size 4 \
---exp_name single_post_SO_34k
+--exp_name single_post_SO_34k_at_0
