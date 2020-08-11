@@ -8,14 +8,13 @@ from transformers import BertConfig
 
 sys.path.append("..")
 sys.path.append("../../")
-sys.path.append("../../common")
 
 from code_search.twin.twin_eval import test
 from code_search.twin.twin_eval import get_eval_args
 
 from trace_single.train_trace_single import load_examples
-from utils import MODEL_FNAME
-from models import TBertI2
+from common.utils import MODEL_FNAME
+from common.models import TBertI2
 
 if __name__ == "__main__":
     args = get_eval_args()
@@ -33,8 +32,8 @@ if __name__ == "__main__":
     if args.model_path and os.path.exists(args.model_path):
         model_path = os.path.join(args.model_path, MODEL_FNAME)
         model.load_state_dict(torch.load(model_path))
-    else:
-        raise Exception("evaluation model not found")
+    # else:
+    #     raise Exception("evaluation model not found")
     logger.info("model loaded")
 
     start_time = time.time()

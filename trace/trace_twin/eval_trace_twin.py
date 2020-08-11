@@ -6,17 +6,15 @@ import time
 import torch
 from transformers import BertConfig
 
-
 sys.path.append("..")
 sys.path.append("../../")
-sys.path.append("../../common")
 
 from code_search.twin.twin_eval import test
 from code_search.twin.twin_eval import get_eval_args
 
 from trace_single.train_trace_single import load_examples
-from utils import MODEL_FNAME
-from models import TBertT
+from common.utils import MODEL_FNAME
+from common.models import TBertT
 
 if __name__ == "__main__":
     args = get_eval_args()
