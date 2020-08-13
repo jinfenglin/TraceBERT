@@ -7,7 +7,7 @@ import time
 from torch.utils.data import DataLoader
 
 sys.path.append("..")
-sys.path.append("../../common")
+sys.path.append("../..")
 
 from tqdm import tqdm
 from code_search.twin.twin_train import load_examples

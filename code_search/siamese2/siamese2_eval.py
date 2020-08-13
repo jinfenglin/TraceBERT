@@ -1,16 +1,12 @@
-import argparse
 import logging
 import os
 import sys
 import time
 
-from torch.utils.data import DataLoader
+sys.path.append("..")
+sys.path.append("../../")
 
 from code_search.twin.twin_eval import get_eval_args, test
-
-sys.path.append("..")
-sys.path.append("../../common")
-
 from code_search.twin.twin_train import load_examples
 
 import torch
