@@ -38,6 +38,7 @@ if __name__ == "__main__":
     start_time = time.time()
     test_examples = load_examples(args.data_dir, data_type="test", model=model, overwrite=args.overwrite,
                                   num_limit=args.test_num)
+    test_examples.update_embd(model)
     m = test(args, model, test_examples, "cached_siamese2_test")
     exe_time = time.time() - start_time
     m.write_summary(exe_time)
