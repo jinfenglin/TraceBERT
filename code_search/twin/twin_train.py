@@ -133,12 +133,12 @@ def train_with_neg_sampling(args, model, train_examples: Examples, valid_example
                 tr_ac = 0.0
 
             # Save model checkpoint
-            if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
+            if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 1:
                 # step invoke checkpoint writing
                 ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
                 save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
 
-            if args.valid_step > 0 and args.global_step % args.valid_step == 0:
+            if args.valid_step > 0 and args.global_step % args.valid_step == 1:
                 # step invoke validation
                 valid_examples.update_embd(model)
                 valid_accuracy, valid_loss = evaluate_classification(valid_examples, model,
@@ -243,7 +243,7 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     # Train!
     log_train_info(args, example_num, t_total)
 
-    args.global_step = 1
+    args.global_step = 0
     args.epochs_trained = 0
     args.steps_trained_in_current_epoch = 0
     if args.model_path and os.path.exists(args.model_path):
