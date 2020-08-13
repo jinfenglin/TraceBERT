@@ -1,17 +1,17 @@
 #!/bin/csh
 #$ -l gpu_card=1
 #$ -q gpu     # Specify queue (use ‘debug’ for development)
-#$ -N TE_IPO     #  trace eavl siamese post online
+#$ -N TE_TPO     #  trace eavl siamese post online
 
 module load python/3.7.3
 module load pytorch/1.1.0
 
-set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/trace/trace_siamese"
+set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/trace/trace_twin"
 cd $root
 
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
-python eval_trace_siamese.py \
+python eval_trace_twin.py \
 --data_dir ../data/git_data/dbcli/pgcli \
---model_path ./output/siamese2_post_14k/final_model \
+--model_path ./output/twin_post_28k/final_model \
 --per_gpu_eval_batch_size 4 \
---exp_name siamese2_post_14k
+--exp_name twin_post_28k
