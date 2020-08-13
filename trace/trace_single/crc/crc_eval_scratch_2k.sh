@@ -13,6 +13,6 @@ source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
 python eval_trace_single.py \
 --data_dir ../data/git_data/dbcli/pgcli \
---model_path ./output/single_scratch/checkpoint-4000\
+--model_path ./output/single_scratch/checkpoint-2000\
 --per_gpu_eval_batch_size 4 \
---exp_name
+--exp_name "eval_single_scratch_2k"
