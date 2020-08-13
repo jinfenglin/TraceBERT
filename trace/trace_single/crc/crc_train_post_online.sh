@@ -23,5 +23,5 @@ python train_trace_single.py \
 --gradient_accumulation_steps 16 \
 --num_train_epochs 400 \
 --learning_rate 4e-5 \
---valid_step 500 \
+--valid_step 2000 \
 --neg_sampling online
