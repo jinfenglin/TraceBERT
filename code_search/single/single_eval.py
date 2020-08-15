@@ -27,7 +27,7 @@ def test(args, model, eval_examples, chunck_size=1000):
     cache_file = "cached_single_test.dat"
     if args.overwrite or not os.path.isfile(cache_file):
         chunked_retrivial_examples = eval_examples.get_chunked_retrivial_task_examples(
-            chunck_query_num=args.chun_query_num,
+            chunck_query_num=args.chunck_query_num,
             chunk_size=chunck_size)
         torch.save(chunked_retrivial_examples, cache_file)
     else:
