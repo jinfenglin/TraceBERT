@@ -1,7 +1,7 @@
 #!/bin/csh
 #$ -l gpu_card=1
 #$ -q gpu     # Specify queue (use ‘debug’ for development)
-#$ -N E_S_online        # Specify job name
+#$ -N E_S_online        # evaluation for single online training
 
 module load python/3.7.3
 module load pytorch/1.1.0
@@ -14,4 +14,4 @@ python single_eval.py \
 --data_dir ../data/code_search_net/python \
 --model_path ../../trace/pretrained_model/single_online_34000 \
 --per_gpu_eval_batch_size 4 \
---exp_name "single_online_34k"
+--exp_name "single_online_34k" \

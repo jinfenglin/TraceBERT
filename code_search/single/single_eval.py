@@ -26,7 +26,9 @@ def test(args, model, eval_examples, chunck_size=1000):
     retr_res_path = os.path.join(args.output_dir, "raw_result.csv")
     cache_file = "cached_single_test.dat"
     if args.overwrite or not os.path.isfile(cache_file):
-        chunked_retrivial_examples = eval_examples.get_chunked_retrivial_task_examples(chunck_size)
+        chunked_retrivial_examples = eval_examples.get_chunked_retrivial_task_examples(
+            chunck_query_num=args.chun_query_num,
+            chunk_size=chunck_size)
         torch.save(chunked_retrivial_examples, cache_file)
     else:
         chunked_retrivial_examples = torch.load(cache_file)

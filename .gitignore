@@ -20,3 +20,4 @@ results
 *.dat
 credentials.cfg
 !**/crc/evaluation
+we

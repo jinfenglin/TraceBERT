@@ -199,7 +199,13 @@ class Examples:
         dataset = DataLoader(res, batch_size=batch_size)
         return dataset
 
-    def get_chunked_retrivial_task_examples(self, chunk_size = 1000):
+    def get_chunked_retrivial_task_examples(self, chunck_query_num=-1, chunk_size=1000):
+        """
+        Cut the positive examples into chuncks. For EACH chunk generate queries at a size of query_num * chunk_size
+        :param query_num: if query_num is -1 then create queries at a size of chunk_size * chunk_size
+        :param chunk_size:
+        :return:
+        """
         rels = []
         for nid in self.rel_index:
             for pid in self.rel_index[nid]:
@@ -207,11 +213,15 @@ class Examples:
         rel_dl = DataLoader(rels, batch_size=chunk_size)
         examples = []
         for batch in rel_dl:
+            batch_query_idx = 0
             nids, pids = batch[0].tolist(), batch[1].tolist()
             for nid in nids:
+                batch_query_idx += 1
+                if chunck_query_num != -1 and batch_query_idx > chunck_query_num:
+                    break
                 for pid in pids:
                     label = 1 if self.__is_positive_case(nid, pid) else 0
-                    examples.append((nid,pid,label))
+                    examples.append((nid, pid, label))
         return examples
 
     def id_pair_to_embd_pair(self, nl_id_tensor: Tensor, pl_id_tensor: Tensor) -> Tuple[Tensor, Tensor]:

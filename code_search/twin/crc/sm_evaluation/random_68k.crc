@@ -1,17 +1,20 @@
 #!/bin/csh
 #$ -l gpu_card=1
 #$ -q gpu     # Specify queue (use ‘debug’ for development)
-#$ -N E_S_random        # evaluation for single online training
+#$ -N E_T_random        # Specify job name
 
 module load python/3.7.3
 module load pytorch/1.1.0
 
-set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/single"
+set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/twin"
 cd $root
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
-python single_eval.py \
+python twin_eval.py \
 --data_dir ../data/code_search_net/python \
---model_path ../../trace/pretrained_model/single_random_32000 \
+--model_path ../../trace/pretrained_model/twin_random_68000 \
 --per_gpu_eval_batch_size 4 \
---exp_name "single_random_18k"
+--exp_name "sm_twin_random_68000" \
+--test_num 1000 \
+--chunk_query_num 100 \
+--overwrite
