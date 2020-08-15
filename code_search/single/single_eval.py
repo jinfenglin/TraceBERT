@@ -20,15 +20,15 @@ from common.metrices import metrics
 from common.utils import MODEL_FNAME, results_to_df, format_batch_input_for_single_bert
 
 
-def test(args, model, eval_examples, chunck_size=1000):
+def test(args, model, eval_examples, chunk_size=1000):
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
     retr_res_path = os.path.join(args.output_dir, "raw_result.csv")
     cache_file = "cached_single_test.dat"
     if args.overwrite or not os.path.isfile(cache_file):
         chunked_retrivial_examples = eval_examples.get_chunked_retrivial_task_examples(
-            chunck_query_num=args.chunck_query_num,
-            chunk_size=chunck_size)
+            chunk_query_num=args.chunk_query_num,
+            chunk_size=chunk_size)
         torch.save(chunked_retrivial_examples, cache_file)
     else:
         chunked_retrivial_examples = torch.load(cache_file)
