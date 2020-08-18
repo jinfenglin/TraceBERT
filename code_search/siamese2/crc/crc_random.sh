@@ -12,5 +12,17 @@ cd $root
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/siamese2/task.log &
 pip3 install -r /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/requirement.txt
-chmod +x ./train_siamese2_crc_radnom.sh
-./train_siamese2_crc_random.sh
+
+python siamese2_train.py \
+--data_dir ../data/code_search_net/python \
+--output_dir ./output \
+--per_gpu_train_batch_size 4 \
+--per_gpu_eval_batch_size 4 \
+--logging_steps 10 \
+--save_steps 10000 \
+--gradient_accumulation_steps 16 \
+--num_train_epochs 8 \
+--learning_rate 4e-5 \
+--valid_num 200 \
+--valid_step 10000 \
+--neg_sampling random
