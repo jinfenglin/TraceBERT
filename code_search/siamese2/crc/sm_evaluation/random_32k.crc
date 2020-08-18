@@ -12,9 +12,9 @@ source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
 python siamese2_eval.py \
 --data_dir ../data/code_search_net/python \
---model_path ../../trace/pretrained_model/siamese_random_32000 \
+--model_path ../../trace/pretrained_model/siamese_random_18000 \
 --per_gpu_eval_batch_size 4 \
---exp_name "sm_siamese_random_32000" \
+--exp_name "sm_siamese_random_18000" \
 --test_num 1000 \
 --chunk_query_num 100 \
 --overwrite
