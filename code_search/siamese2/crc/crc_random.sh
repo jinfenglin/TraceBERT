@@ -10,8 +10,8 @@ set root = "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/siamese2"
 cd $root
 
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
-fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/siamese2/task.log &
-pip3 install -r /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/requirement.txt
+#fsync /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/code_search/siamese2/task.log &
+#pip3 install -r /afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/requirement.txt
 
 python siamese2_train.py \
 --data_dir ../data/code_search_net/python \
