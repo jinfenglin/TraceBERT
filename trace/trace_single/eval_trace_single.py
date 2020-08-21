@@ -42,3 +42,6 @@ if __name__ == "__main__":
     m = test(args, model, test_examples)
     exe_time = time.time() - start_time
     m.write_summary(exe_time)
+
+
+
