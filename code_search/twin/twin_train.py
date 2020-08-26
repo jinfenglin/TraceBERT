@@ -213,6 +213,8 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     """
     exp_name = get_exp_name(args)
     args.output_dir = os.path.join(args.output_dir, exp_name)
+    if not os.path.isdir(args.output_dir):
+        os.makedirs(args.output_dir)
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter(log_dir="../runs/{}".format(exp_name))
 

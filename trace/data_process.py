@@ -165,7 +165,9 @@ if __name__ == "__main__":
     logging.basicConfig()
     logger = logging.getLogger()
     logger.setLevel("INFO")
-    projects = ['dbcli/pgcli']
+    # projects = ['dbcli/pgcli']
+    # projects = ['pallets/flask']
+    projects = ['keras-team/keras']
 
     config = configparser.ConfigParser()
     config.read('credentials.cfg')
