@@ -13,6 +13,6 @@ source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
 python eval_trace_twin.py \
 --data_dir ../data/git_data/pallets/flask \
---model_path ./output/flask/twin_transfer_0826/checkpoint-4001 \
+--model_path ./output/flask/twin_transfer_0826/checkpoint-2001 \
 --per_gpu_eval_batch_size 4 \
 --exp_name twin_transfer_0826
