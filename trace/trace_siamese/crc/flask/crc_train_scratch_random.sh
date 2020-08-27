@@ -1,7 +1,7 @@
 #!/bin/csh
 #$ -l gpu_card=1
 #$ -q gpu     # Specify queue (use ‘debug’ for development)
-#$ -N FT_SS       # flask train siamese + scratch
+#$ -N FT_IS       # flask train siamese + scratch
 
 module load python/3.7.3
 module load pytorch/1.1.0
