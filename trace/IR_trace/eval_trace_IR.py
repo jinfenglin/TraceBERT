@@ -238,8 +238,8 @@ if __name__ == "__main__":
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
     # args.data_dir = "../data/git_data/dbcli/pgcli"
-    # args.data_dir = "../data/git_data/pallets/flask"
-    args.data_dir = "../data/git_data/keras-team/keras"
+    args.data_dir = "../data/git_data/pallets/flask"
+    # args.data_dir = "../data/git_data/keras-team/keras"
     model = TBertT(BertConfig(), args.code_bert)
     test_dir = os.path.join(args.data_dir, "test")
     test_examples = load_examples(test_dir, model=model, num_limit=args.test_num)
