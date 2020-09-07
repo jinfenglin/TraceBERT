@@ -1,7 +1,7 @@
 import logging
 
 import torch
-from torch import nn, autograd
+from torch import nn
 import numpy as np
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
@@ -68,20 +68,24 @@ class classifyHeader(nn.Module):
 
 
 class LSTMEncoder(nn.Module):
-    def __init__(self, hidden_dim, embd_info):
+    def __init__(self, hidden_dim, embd_info, max_seq_len):
         super().__init__()
         embd_info = create_emb_layer(embd_info)
+        self.max_seq_len = max_seq_len
         self.embedding = embd_info["embd_layer"]
         self.word2idx = embd_info['word2idx']
         self.embd_dim = embd_info['embd_dim']
         self.lstm = nn.LSTM(self.embd_dim, hidden_dim, num_layers=1, batch_first=True)
 
     def token_to_ids(self, tokens):
+        tokens = tokens[:self.max_seq_len]
         id_vec = []
         for tk in tokens:
             tk = tk if tk in self.word2idx else "__UNK__"
             id = self.word2idx[tk]
             id_vec.append(id)
+        pad_num = max(0, self.max_seq_len - len(id_vec))
+        id_vec.extend(pad_num * [0])
         id_tensor = torch.tensor(id_vec)
         return id_tensor
 
@@ -92,17 +96,15 @@ class LSTMEncoder(nn.Module):
 
 
 class RNNTracer(nn.Module):
-    def __init__(self, hidden_dim, embd_info):
+    def __init__(self, hidden_dim, embd_info, max_seq_len=128):
         super().__init__()
-        # self.embd_info =  load_embd_from_file(embd_file_path)
+        self.device = None
         self.embd_info = embd_info
-        self.nl_encoder = LSTMEncoder(hidden_dim, self.embd_info)
-        self.pl_encoder = LSTMEncoder(hidden_dim, self.embd_info)
+        self.nl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len)
+        self.pl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len)
         self.cls = classifyHeader(hidden_dim)
 
-    def forward(self, nl_input, pl_input, label=None):
-        nl_hidden = self.nl_encoder(nl_input)
-        pl_hidden = self.pl_encoder(pl_input)
+    def forward(self, nl_hidden, pl_hidden, label=None):
         logits = self.cls(nl_hidden, pl_hidden)
         output_dict = {'logits': logits}
         if label is not None:
@@ -113,7 +115,7 @@ class RNNTracer(nn.Module):
 
     def get_sim_score(self, text_hidden, code_hidden):
         logits = self.cls(text_hidden, code_hidden)
-        sim_scores = torch.softmax(logits[-1], 1).data.tolist()
+        sim_scores = torch.softmax(logits.view(-1,2), 1).data.tolist()
         return [x[1] for x in sim_scores]
 
     def get_nl_hidden(self, nl_input):
@@ -126,12 +128,13 @@ class RNNTracer(nn.Module):
 
 
 if __name__ == "__main__":
-    embd_info = create_emb_layer("./we/glove.6B.300d.txt")
+    embd_info = load_embd_from_file("./we/glove.6B.300d.txt")
+    embd_info = create_emb_layer(embd_info)
     sent1 = ["this", "is", "sent1", "false"]
-    sent2 = ["ok", "cool"]
-    sent3 = ['that', "the"]
+    sent2 = ["ok", "cool", "yes"]
+    sent3 = ['that', "the", "an"]
 
-    rt = RNNTracer(hidden_dim=100)
+    rt = RNNTracer(hidden_dim=100, embd_info=embd_info, max_seq_len=128)
     input_1 = rt.pl_encoder.token_to_ids(sent1)
     input_2 = rt.pl_encoder.token_to_ids(sent2)
     input_3 = rt.nl_encoder.token_to_ids(sent3)
@@ -141,7 +144,8 @@ if __name__ == "__main__":
 
     nl_hidden = rt.get_nl_hidden(nl)
     pl_hidden = rt.get_pl_hidden(pl)
-    logits = rt(nl, pl)
+
+    logits = rt(nl_hidden, pl_hidden)
     print(logits)
 
     score = rt.get_sim_score(text_hidden=nl_hidden, code_hidden=pl_hidden)

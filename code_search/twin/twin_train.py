@@ -211,7 +211,11 @@ def train(args, train_examples, valid_examples, model, train_iter_method):
     :param train_iter_method: method use for training in each iteration
     :return:
     """
-    exp_name = get_exp_name(args)
+    if not args.exp_name:
+        exp_name = get_exp_name(args)
+    else:
+        exp_name = args.exp_name
+
     args.output_dir = os.path.join(args.output_dir, exp_name)
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
