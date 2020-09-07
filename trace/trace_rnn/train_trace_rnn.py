@@ -152,7 +152,8 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         outputs = model(**inputs)
         loss = outputs['loss']
         logit = outputs['logits']
-        y_pred = torch.squeeze(logit.data, 0).max(1)[1]
+        # y_pred = torch.squeeze(logit.data, 0).max(1)[1]
+        y_pred = logit.data.max(1)[1]
         tr_ac += y_pred.eq(labels).long().sum().item()
 
         if args.n_gpu > 1:
@@ -268,7 +269,7 @@ def _id_to_embd(id_tensor: Tensor, index):
 def __id_to_feature(id_tensor, index):
     input_ids = []
     for id in id_tensor.tolist():
-        input_ids.append(torch.tensor(index[id][RNN_TK_ID]))
+        input_ids.append(index[id][RNN_TK_ID].clone().detach())
     input_tensor = torch.stack(input_ids)
     return input_tensor
 
