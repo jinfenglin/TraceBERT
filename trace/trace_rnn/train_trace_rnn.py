@@ -5,19 +5,17 @@ import os
 import sys
 from typing import Dict
 
-import torch
-from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm, trange
-from transformers import AdamW, get_linear_schedule_with_warmup
-
-from code_search.twin.twin_train import train
-from metrices import metrics
-from trace_single.train_trace_single import read_OSS_examples
-from utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
-
 sys.path.append("..")
 sys.path.append("../..")
+
+import torch
+from torch import Tensor
+from tqdm import tqdm
+
+from code_search.twin.twin_train import train
+from common.metrices import metrics
+from trace_single.train_trace_single import read_OSS_examples
+from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
 
 from trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
 from common.data_structures import Examples, F_TOKEN
@@ -141,13 +139,7 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                    scheduler, tb_writer, step_bar, skip_n_steps):
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
-    cache_file = "cached_RNN_random_neg_sample_epoch_{}.dat".format(args.epochs_trained)
-
-    if args.overwrite or not os.path.isfile(cache_file):
-        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
-        torch.save(train_dataloader, cache_file)
-    else:
-        train_dataloader = torch.load(cache_file)
+    train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
 
     for step, batch in enumerate(train_dataloader):
         if skip_n_steps > 0:
@@ -341,7 +333,8 @@ def main():
     if args.local_rank not in [-1, 0]:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
-    model = RNNTracer(hidden_dim=args.hidden_dim, embd_info=embd_info, max_seq_len=args.max_seq_len)
+    model = RNNTracer(hidden_dim=args.hidden_dim, embd_info=embd_info, embd_trainable=args.is_embd_trainable,
+                      max_seq_len=args.max_seq_len)
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()

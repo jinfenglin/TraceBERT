@@ -1,0 +1,12 @@
+python train_trace_rnn.py \
+--data_dir ../data/git_data/pallets/flask/ \
+--output_dir ./output \
+--embd_file_path ./we/glove.6B.300d.txt \
+--exp_name test_rnn \
+--valid_step 100 \
+--logging_steps 10 \
+--gradient_accumulation_steps 8 \
+--per_gpu_eval_batch_size 8 \
+--num_train_epoch 400 \
+--is_embd_trainable true \
+--hidden_dim 256
