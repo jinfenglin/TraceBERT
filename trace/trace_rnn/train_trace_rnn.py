@@ -238,8 +238,8 @@ def evaluate_rnn_classification(eval_examples, model: RNNTracer, batch_size, out
             if append_label:
                 loss = outputs['loss'].item()
                 eval_loss += loss
-            y_pred = torch.squeeze(logit.data, 0).max(1)[1]
-
+            y_pred = logit.data.max(1)[1]
+            # y_pred = torch.squeeze(logit.data, 0).max(1)[1]
             batch_correct = y_pred.eq(labels).long().sum().item()
             num_correct += batch_correct
             eval_num += y_pred.size()[0]

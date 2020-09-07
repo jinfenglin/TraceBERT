@@ -23,8 +23,6 @@ def load_embd_from_file(embd_file_path):
             embd_matrix.append(torch.tensor(vec, dtype=torch.float64))
             word2idx[word] = idx
             idx += 1
-            if idx > 100:
-                break
 
     embd_dim = len(embd_matrix[0])
     embd_matrix.append(torch.from_numpy(np.random.normal(scale=0.6, size=(embd_dim,))))
@@ -112,10 +110,11 @@ class LSTMEncoder(nn.Module):
         self.embd_dim = embd_info['embd_dim']
         self.lstm = nn.LSTM(self.embd_dim, hidden_dim, num_layers=1, batch_first=True)
 
-    def token_to_ids(self, tokens, pad_to_max_seq_len=False):
+    def token_to_ids(self, tokens, pad_to_max_seq_len=True):
         tokens = tokens[:self.max_seq_len]
         id_vec = []
         for tk in tokens:
+            tk = tk.lower()
             tk = tk if tk in self.word2idx else "__UNK__"
             id = self.word2idx[tk]
             id_vec.append(id)
