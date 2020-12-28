@@ -13,6 +13,6 @@ source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
 python eval_trace_rnn.py \
 --data_dir ../data/git_data/pallets/flask \
---model_path ./output/flask/final_model \
+--model_path ./output/flask/checkpoint-6000 \
 --per_gpu_eval_batch_size 4 \
 --exp_name flask
