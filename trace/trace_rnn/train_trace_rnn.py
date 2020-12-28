@@ -41,7 +41,7 @@ def load_examples_for_rnn(data_dir, model, num_limit):
 def update_rnn_feature(examples: Examples, model: RNNTracer):
     def __update_rnn_feature(index: Dict, encoder: LSTMEncoder):
         for id in index.keys():
-            tokens = index[id][F_TOKEN]
+            tokens = index[id][F_TOKEN].split()
             tk_id = encoder.token_to_ids(tokens)
             index[id][RNN_TK_ID] = tk_id
 
@@ -53,7 +53,7 @@ def update_rnn_embd(examples: Examples, model: RNNTracer):
     def __update_rnn_embd(index: Dict, sub_model: LSTMEncoder):
         for id in tqdm(index.keys(), desc="update RNN embedding"):
             tk_id = index[id][RNN_TK_ID].view(1, -1)
-            embd = sub_model(tk_id.to(model.device))
+            embd = sub_model(tk_id.to(model.device))[0]
             index[id][RNN_EMBD] = embd.to('cpu')
 
     with torch.no_grad():
@@ -107,10 +107,12 @@ def get_rnn_train_args():
     parser.add_argument(
         "--embd_file_path", type=str, help="the path of word embdding file")
     parser.add_argument(
-        "--is_embd_trainable", type=bool, default=False, help="whether the embedding is trainable")
+        "--is_embd_trainable", default=False, action='store_true', help="whether the embedding is trainable")
     parser.add_argument("--hidden_dim", type=int, default=128, help="hidden state dimension")
     parser.add_argument("--exp_name", type=str,
                         help="ID for this execution, RNN training must specify a name as a quick fix")
+    parser.add_argument("--is_no_padding", default=False, action='store_true',
+                        help="if do not have padding then the batch size is always 1")
 
     return parser.parse_args()
 
@@ -145,6 +147,7 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         if skip_n_steps > 0:
             skip_n_steps -= 1
             continue
+
         model.train()
         labels = batch[2].to(model.device)
         inputs = format_rnn_batch_input(batch, train_examples, model)
@@ -152,9 +155,9 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         outputs = model(**inputs)
         loss = outputs['loss']
         logit = outputs['logits']
-        # y_pred = torch.squeeze(logit.data, 0).max(1)[1]
         y_pred = logit.data.max(1)[1]
         tr_ac += y_pred.eq(labels).long().sum().item()
+
 
         if args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -195,7 +198,7 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                 tr_ac = 0.0
 
             # Save model checkpoint
-            if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 1:
+            if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
                 # step invoke checkpoint writing
                 ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
                 save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
@@ -299,7 +302,7 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
     m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
-    best_f1, best_f2, details = m.precision_recall_curve("pr_curve.png")
+    best_f1, best_f2, details, threshold = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
     summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
@@ -312,6 +315,12 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
 
 def main():
     args = get_rnn_train_args()
+    if args.is_no_padding:
+        args.gradient_accumulation_steps = 1
+        args.per_gpu_eval_batch_size = 1
+        args.per_gpu_train_batch_size = 1
+        args.logging_steps = args.logging_steps * 10
+
     args.exp_name = "{}_{}".format(args.exp_name, datetime.datetime.now().strftime("%m-%d-%H-%M-%S"))
     # embd_info = create_emb_layer("./we/glove.6B.300d.txt")
     embd_info = load_embd_from_file(args.embd_file_path)
@@ -335,7 +344,7 @@ def main():
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
     model = RNNTracer(hidden_dim=args.hidden_dim, embd_info=embd_info, embd_trainable=args.is_embd_trainable,
-                      max_seq_len=args.max_seq_len)
+                      max_seq_len=args.max_seq_len, is_no_padding=args.is_no_padding)
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
