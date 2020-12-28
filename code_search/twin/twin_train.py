@@ -333,6 +333,9 @@ def get_train_args():
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
     parser.add_argument(
+        "--exp_name", type=str, help="name of this execution"
+    )
+    parser.add_argument(
         "--hard_ratio", default=0.5, type=float,
         help="The ration of hard negative examples in a batch during negative sample mining"
     )

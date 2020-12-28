@@ -1,7 +1,7 @@
 import logging
 
 import torch
-from torch import nn
+from torch import nn, autograd
 import numpy as np
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
@@ -23,6 +23,8 @@ def load_embd_from_file(embd_file_path):
             embd_matrix.append(torch.tensor(vec, dtype=torch.float64))
             word2idx[word] = idx
             idx += 1
+            # if idx>100:
+            #     break
 
     embd_dim = len(embd_matrix[0])
     embd_matrix.append(torch.from_numpy(np.random.normal(scale=0.6, size=(embd_dim,))))
@@ -78,18 +80,19 @@ class classifyHeader(nn.Module):
     def __init__(self, hidden_size):
         super().__init__()
         self.hidden_size = hidden_size
-        self.code_pooler = RNNAvgPooler(hidden_size)
-        self.text_pooler = RNNAvgPooler(hidden_size)
+        # self.code_pooler = RNNAvgPooler(hidden_size)
+        # self.text_pooler = RNNAvgPooler(hidden_size)
 
         self.dense = nn.Linear(hidden_size * 3, hidden_size)
         self.dropout = nn.Dropout(0.2)
         self.output_layer = nn.Linear(hidden_size, 2)
 
     def forward(self, nl_hidden, pl_hidden):
-        pool_code_hidden = self.code_pooler(pl_hidden)
-        pool_text_hidden = self.text_pooler(nl_hidden)
-        diff_hidden = torch.abs(pool_code_hidden - pool_text_hidden)
-        concated_hidden = torch.cat((pool_code_hidden, pool_text_hidden), 1)
+        # pool_code_hidden = self.code_pooler(pl_hidden)
+        # pool_text_hidden = self.text_pooler(nl_hidden)
+
+        diff_hidden = torch.abs(nl_hidden - pl_hidden)
+        concated_hidden = torch.cat((nl_hidden, pl_hidden), 1)
         concated_hidden = torch.cat((concated_hidden, diff_hidden), 1)
 
         x = self.dropout(concated_hidden)
@@ -101,16 +104,25 @@ class classifyHeader(nn.Module):
 
 
 class LSTMEncoder(nn.Module):
-    def __init__(self, hidden_dim, embd_info, max_seq_len, embd_trainable):
+    def __init__(self, hidden_dim, embd_info, max_seq_len, embd_trainable, is_no_padding):
         super().__init__()
         embd_info = create_emb_layer(embd_info, trainable=embd_trainable)
+        self.num_layers = 1
+        self.hidden_dim = hidden_dim
+        self.is_no_padding = is_no_padding
         self.max_seq_len = max_seq_len
         self.embedding = embd_info["embd_layer"]
         self.word2idx = embd_info['word2idx']
         self.embd_dim = embd_info['embd_dim']
-        self.lstm = nn.LSTM(self.embd_dim, hidden_dim, num_layers=1, batch_first=True)
+        self.lstm = nn.LSTM(self.embd_dim, hidden_dim, num_layers=self.num_layers, batch_first=True)
 
-    def token_to_ids(self, tokens, pad_to_max_seq_len=True):
+    def init_hidden(self, batch_size):
+        return (
+            torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(next(self.parameters()).device),
+            torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(next(self.parameters()).device)
+        )
+
+    def token_to_ids(self, tokens):
         tokens = tokens[:self.max_seq_len]
         id_vec = []
         for tk in tokens:
@@ -119,24 +131,27 @@ class LSTMEncoder(nn.Module):
             id = self.word2idx[tk]
             id_vec.append(id)
         pad_num = max(0, self.max_seq_len - len(id_vec))
-        if pad_to_max_seq_len:
-            id_vec.extend(pad_num * [0])
+        if not self.is_no_padding:
+            id_vec = pad_num * [0] + id_vec
         id_tensor = torch.tensor(id_vec)
         return id_tensor
 
     def forward(self, input_ids):
+        self.hidden = self.init_hidden(input_ids.size(0))
         embd = self.embedding(input_ids)
-        output, (last_hidden, last_cell_state) = self.lstm(embd)
-        return output
+        output, (last_hidden, last_cell_state) = self.lstm(embd, self.hidden)
+        # return output
+        return output[:, -1, :]
 
 
 class RNNTracer(nn.Module):
-    def __init__(self, hidden_dim, embd_info, embd_trainable, max_seq_len=128):
+    def __init__(self, hidden_dim, embd_info, embd_trainable, is_no_padding, max_seq_len=128):
         super().__init__()
         self.device = None
         self.embd_info = embd_info
-        self.nl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len, embd_trainable)
-        self.pl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len, embd_trainable)
+        self.nl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding)
+        # self.pl_encoder = self.nl_encoder
+        self.pl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding)
         self.cls = classifyHeader(hidden_dim)
 
     def forward(self, nl_hidden, pl_hidden, label=None):
