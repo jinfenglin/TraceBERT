@@ -12,7 +12,7 @@ cd $root
 source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 
 python eval_trace_rnn.py \
---data_dir ../data/git_data/pallets/keras \
+--data_dir ../data/git_data/keras-team/keras \
 --model_path ./output/keras/final_model \
 --per_gpu_eval_batch_size 4 \
 --exp_name keras
