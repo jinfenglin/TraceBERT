@@ -5,19 +5,17 @@ import os
 import sys
 from typing import Dict
 
-import torch
-from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm, trange
-from transformers import AdamW, get_linear_schedule_with_warmup
-
-from code_search.twin.twin_train import train
-from metrices import metrics
-from trace_single.train_trace_single import read_OSS_examples
-from utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
-
 sys.path.append("..")
 sys.path.append("../..")
+
+import torch
+from torch import Tensor
+from tqdm import tqdm
+
+from code_search.twin.twin_train import train
+from common.metrices import metrics
+from trace_single.train_trace_single import read_OSS_examples
+from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
 
 from trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
 from common.data_structures import Examples, F_TOKEN
@@ -141,13 +139,7 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                    scheduler, tb_writer, step_bar, skip_n_steps):
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
-    cache_file = "cached_RNN_random_neg_sample_epoch_{}.dat".format(args.epochs_trained)
-
-    if args.overwrite or not os.path.isfile(cache_file):
-        train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
-        torch.save(train_dataloader, cache_file)
-    else:
-        train_dataloader = torch.load(cache_file)
+    train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
 
     for step, batch in enumerate(train_dataloader):
         if skip_n_steps > 0:
@@ -160,7 +152,8 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         outputs = model(**inputs)
         loss = outputs['loss']
         logit = outputs['logits']
-        y_pred = torch.squeeze(logit.data, 0).max(1)[1]
+        # y_pred = torch.squeeze(logit.data, 0).max(1)[1]
+        y_pred = logit.data.max(1)[1]
         tr_ac += y_pred.eq(labels).long().sum().item()
 
         if args.n_gpu > 1:
@@ -245,8 +238,8 @@ def evaluate_rnn_classification(eval_examples, model: RNNTracer, batch_size, out
             if append_label:
                 loss = outputs['loss'].item()
                 eval_loss += loss
-            y_pred = torch.squeeze(logit.data, 0).max(1)[1]
-
+            y_pred = logit.data.max(1)[1]
+            # y_pred = torch.squeeze(logit.data, 0).max(1)[1]
             batch_correct = y_pred.eq(labels).long().sum().item()
             num_correct += batch_correct
             eval_num += y_pred.size()[0]
@@ -276,7 +269,7 @@ def _id_to_embd(id_tensor: Tensor, index):
 def __id_to_feature(id_tensor, index):
     input_ids = []
     for id in id_tensor.tolist():
-        input_ids.append(torch.tensor(index[id][RNN_TK_ID]))
+        input_ids.append(index[id][RNN_TK_ID].clone().detach())
     input_tensor = torch.stack(input_ids)
     return input_tensor
 
@@ -341,7 +334,8 @@ def main():
     if args.local_rank not in [-1, 0]:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
-    model = RNNTracer(hidden_dim=args.hidden_dim, embd_info=embd_info, max_seq_len=args.max_seq_len)
+    model = RNNTracer(hidden_dim=args.hidden_dim, embd_info=embd_info, embd_trainable=args.is_embd_trainable,
+                      max_seq_len=args.max_seq_len)
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()

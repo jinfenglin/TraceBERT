@@ -13,11 +13,12 @@ sys.path.append("../..")
 
 from git_repo_collector import GitRepoCollector, Commit, Issue
 from nltk.tokenize import word_tokenize
+import numpy as np
 
 
 def __read_artifacts(file_path, type):
     df = pd.read_csv(file_path)
-    df = df.replace(pd.np.nan, regex=True)
+    df = df.replace(np.nan, regex=True)
     arti = []
     for index, row in df.iterrows():
         if type == 'commit':

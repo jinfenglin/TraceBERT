@@ -21,3 +21,4 @@ results
 credentials.cfg
 !**/crc/evaluation
 we
+pretrained_model
