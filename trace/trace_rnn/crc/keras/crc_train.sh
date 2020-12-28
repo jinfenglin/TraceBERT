@@ -23,7 +23,7 @@ python train_trace_rnn.py \
 --gradient_accumulation_steps 8 \
 --per_gpu_eval_batch_size 8 \
 --num_train_epoch 400 \
---is_embd_trainable true \
+--is_embd_trainable \
 --hidden_dim 256
 
 #python train_trace_single.py \
