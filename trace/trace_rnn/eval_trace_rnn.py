@@ -4,12 +4,11 @@ import sys
 
 import torch
 
-from trace_rnn.rnn_model import RNNTracer, load_embd_from_file
-from trace_rnn.train_trace_rnn import load_examples_for_rnn, update_rnn_embd, evaluate_rnn_retrival
-
 sys.path.append("..")
 sys.path.append("../../")
 
+from trace_rnn.rnn_model import RNNTracer, load_embd_from_file
+from trace_rnn.train_trace_rnn import load_examples_for_rnn, update_rnn_embd, evaluate_rnn_retrival
 from code_search.twin.twin_eval import get_eval_args
 
 from common.utils import MODEL_FNAME, ARG_FNAME
