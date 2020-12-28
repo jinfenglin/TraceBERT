@@ -23,8 +23,8 @@ def load_embd_from_file(embd_file_path):
             embd_matrix.append(torch.tensor(vec, dtype=torch.float64))
             word2idx[word] = idx
             idx += 1
-            # if idx>100:
-            #     break
+            if idx>100:
+                break
 
     embd_dim = len(embd_matrix[0])
     embd_matrix.append(torch.from_numpy(np.random.normal(scale=0.6, size=(embd_dim,))))
