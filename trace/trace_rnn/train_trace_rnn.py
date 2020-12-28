@@ -95,7 +95,7 @@ def get_rnn_train_args():
     parser.add_argument(
         "--max_steps", default=-1, type=int,
         help="If > 0: set total number of training steps to perform. Override num_train_epochs.", )
-    parser.add_argument("--save_steps", type=int, default=500, help="Save checkpoint every X updates steps.")
+    parser.add_argument("--save_steps", type=int, default=3000, help="Save checkpoint every X updates steps.")
     parser.add_argument(
         "--output_dir", default=None, type=str, required=True,
         help="The output directory where the model checkpoints and predictions will be written.", )
