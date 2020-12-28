@@ -23,8 +23,6 @@ def load_embd_from_file(embd_file_path):
             embd_matrix.append(torch.tensor(vec, dtype=torch.float64))
             word2idx[word] = idx
             idx += 1
-            if idx >= 100:
-                break
 
     embd_dim = len(embd_matrix[0])
     embd_matrix.append(torch.from_numpy(np.random.normal(scale=0.6, size=(embd_dim,))))
@@ -77,7 +75,7 @@ class LSTMEncoder(nn.Module):
         self.embd_dim = embd_info['embd_dim']
         self.lstm = nn.LSTM(self.embd_dim, hidden_dim, num_layers=1, batch_first=True)
 
-    def token_to_ids(self, tokens):
+    def token_to_ids(self, tokens, pad_to_max_seq=False):
         tokens = tokens[:self.max_seq_len]
         id_vec = []
         for tk in tokens:
@@ -85,7 +83,8 @@ class LSTMEncoder(nn.Module):
             id = self.word2idx[tk]
             id_vec.append(id)
         pad_num = max(0, self.max_seq_len - len(id_vec))
-        id_vec.extend(pad_num * [0])
+        if pad_to_max_seq:
+            id_vec.extend(pad_num * [0])
         id_tensor = torch.tensor(id_vec)
         return id_tensor
 
@@ -115,7 +114,7 @@ class RNNTracer(nn.Module):
 
     def get_sim_score(self, text_hidden, code_hidden):
         logits = self.cls(text_hidden, code_hidden)
-        sim_scores = torch.softmax(logits.view(-1,2), 1).data.tolist()
+        sim_scores = torch.softmax(logits.view(-1, 2), 1).data.tolist()
         return [x[1] for x in sim_scores]
 
     def get_nl_hidden(self, nl_input):

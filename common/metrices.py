@@ -66,7 +66,7 @@ class metrics:
             plt.savefig(fig_path)
             plt.close()
         detail = self.f1_details(max_threshold)
-        return round(max_f1, 3), round(max_f2, 3), detail
+        return round(max_f1, 3), round(max_f2, 3), detail, max_threshold
 
     def precision_at_K(self, k=1):
         if self.group_sort is None:
@@ -119,7 +119,7 @@ class metrics:
         pk2 = self.precision_at_K(2)
         pk1 = self.precision_at_K(1)
 
-        best_f1, best_f2, details = self.precision_recall_curve("pr_curve.png")
+        best_f1, best_f2, details, f1_threshold = self.precision_recall_curve("pr_curve.png")
         map = self.MAP_at_K(3)
         mrr = self.MRR()
         return {
@@ -130,22 +130,27 @@ class metrics:
             'f2': best_f2,
             'map': map,
             'mrr': mrr,
-            'details': details
+            'details': details,
+            'f1_threshold': f1_threshold
         }
 
-    def write_summary(self,exe_time):
+    def write_summary(self, exe_time):
         summary_path = os.path.join(self.output_dir, "summary.txt")
         res = self.get_all_metrices()
         pk3, pk2, pk1 = res['pk3'], res['pk2'], res['pk1']
         best_f1, best_f2, details = res['f1'], res['f2'], res['details']
         map, mrr = res['map'], res['mrr']
-        summary = "\npk3={}, pk2={},pk1={} best_f1 = {}, bets_f2={}, MAP={}, MRR={}, exe_time={}\n".format(pk3, pk2,
-                                                                                                           pk1,
-                                                                                                           best_f1,
-                                                                                                           best_f2,
-                                                                                                           map,
-                                                                                                           mrr,
-                                                                                                           exe_time)
+        summary = "\npk3={}, pk2={},pk1={} best_f1 = {}, bets_f2={}, MAP={}, MRR={}, exe_time={},f1_threshold={}\n".format(
+            pk3,
+            pk2,
+            pk1,
+            best_f1,
+            best_f2,
+            map,
+            mrr,
+            exe_time,
+            res['f1_threshold']
+        )
         with open(summary_path, 'w') as fout:
             fout.write(summary)
             fout.write(str(details))
