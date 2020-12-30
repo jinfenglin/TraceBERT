@@ -2,6 +2,7 @@ import argparse
 import datetime
 import logging
 import os
+import re
 import sys
 from typing import Dict
 
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 RNN_TK_ID = "RNN_TK_ID"
 RNN_EMBD = "RNN_EMBD"
 
+rnn_split_pattern = "(\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|])"
+
 
 def load_examples_for_rnn(data_dir, model, num_limit):
     cache_dir = os.path.join(data_dir, "cache")
@@ -33,6 +36,10 @@ def load_examples_for_rnn(data_dir, model, num_limit):
     raw_examples = read_OSS_examples(data_dir)
     if num_limit:
         raw_examples = raw_examples[:num_limit]
+
+    for e in raw_examples:
+        e['NL'] = " ".join(re.split(rnn_split_pattern, e['NL']))
+        e['PL'] = " ".join(re.split(rnn_split_pattern, e['PL']))
     examples = Examples(raw_examples)
     update_rnn_feature(examples, model)
     return examples
@@ -157,7 +164,6 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         logit = outputs['logits']
         y_pred = logit.data.max(1)[1]
         tr_ac += y_pred.eq(labels).long().sum().item()
-
 
         if args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
