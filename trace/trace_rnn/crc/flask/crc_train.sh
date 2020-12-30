@@ -16,7 +16,7 @@ source "/afs/crc.nd.edu/user/j/jlin6/projects/ICSE2020/venv/bin/activate.csh"
 python train_trace_rnn.py \
 --data_dir ../data/git_data/pallets/flask \
 --output_dir ./output \
---embd_file_path ./we/glove.6B.300d.txt \
+--embd_file_path ./we/proj_embedding.txt \
 --exp_name flask \
 --valid_step 100 \
 --logging_steps 10 \
