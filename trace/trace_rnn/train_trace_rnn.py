@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 RNN_TK_ID = "RNN_TK_ID"
 RNN_EMBD = "RNN_EMBD"
 
-rnn_split_pattern = "(\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|])"
+rnn_split_pattern = "\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|]"
 
 
 def load_examples_for_rnn(data_dir, model, num_limit):
@@ -86,8 +86,8 @@ def get_rnn_train_args():
     parser.add_argument("--train_num", type=int, default=None,
                         help="number of instances used for training")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
-    parser.add_argument("--per_gpu_train_batch_size", default=8, type=int, help="Batch size per GPU/CPU for training.")
-    parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int, help="Batch size per GPU/CPU for evaluation.")
+    parser.add_argument("--per_gpu_train_batch_size", default=1, type=int, help="Batch size per GPU/CPU for training.")
+    parser.add_argument("--per_gpu_eval_batch_size", default=1, type=int, help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
@@ -110,12 +110,12 @@ def get_rnn_train_args():
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
-    parser.add_argument("--max_seq_len", type=int, default=128, help="maximal input sequence length")
+    parser.add_argument("--max_seq_len", type=int, default=64, help="maximal input sequence length")
     parser.add_argument(
         "--embd_file_path", type=str, help="the path of word embdding file")
     parser.add_argument(
         "--is_embd_trainable", default=False, action='store_true', help="whether the embedding is trainable")
-    parser.add_argument("--hidden_dim", type=int, default=128, help="hidden state dimension")
+    parser.add_argument("--hidden_dim", type=int, default=30, help="hidden state dimension")
     parser.add_argument("--exp_name", type=str,
                         help="ID for this execution, RNN training must specify a name as a quick fix")
     parser.add_argument("--is_no_padding", default=False, action='store_true',
