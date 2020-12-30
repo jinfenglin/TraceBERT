@@ -5,6 +5,8 @@ import multiprocessing
 import os
 import sys
 
+from torch import optim
+
 sys.path.append("../..")
 
 import torch
@@ -170,6 +172,7 @@ def get_optimizer_scheduler(args, model, train_steps):
         {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    # optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=train_steps
     )

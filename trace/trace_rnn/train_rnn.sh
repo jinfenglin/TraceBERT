@@ -7,3 +7,4 @@ python3 train_trace_rnn.py \
     --logging_steps 10 \
     --learning_rate 0.001 \
     --num_train_epochs 100
+

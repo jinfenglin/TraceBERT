@@ -53,18 +53,19 @@ def create_emb_layer(embd_info, trainable=True):
 #     def __init__(self, hidden_size):
 #         super().__init__()
 #         self.hidden_size = hidden_size
-#         self.dense = nn.Linear(hidden_size, hidden_size)
+#         # self.dense = nn.Linear(hidden_size * 2, hidden_size * 2)
 #         self.sigmoid = nn.Sigmoid()
-#         self.output_layer = nn.Linear(hidden_size, 2)
+#         self.output_layer = nn.Linear(hidden_size * 2, 2)
 #
 #     def forward(self, nl_hidden, pl_hidden):
 #         multi_hidden = torch.mul(nl_hidden, pl_hidden)
 #         diff_hidden = torch.abs(nl_hidden - nl_hidden)
-#         fuse_hidden = multi_hidden + diff_hidden
-#         fuse_hidden = self.dense(fuse_hidden)
+#         fuse_hidden = torch.cat((multi_hidden, diff_hidden), 1)
+#         # fuse_hidden = self.dense(fuse_hidden)
 #         sigmoid_hidden = self.sigmoid(fuse_hidden)
 #         logits = self.output_layer(sigmoid_hidden)
 #         return logits
+
 
 class RNNAvgPooler(nn.Module):
     def __init__(self, hidden_size):
@@ -83,9 +84,9 @@ class classifyHeader(nn.Module):
         # self.code_pooler = RNNAvgPooler(hidden_size)
         # self.text_pooler = RNNAvgPooler(hidden_size)
 
-        self.dense = nn.Linear(hidden_size * 3, hidden_size)
-        self.dropout = nn.Dropout(0.2)
-        self.output_layer = nn.Linear(hidden_size, 2)
+        # self.dense = nn.Linear(hidden_size * 3, hidden_size)
+        # self.dropout = nn.Dropout(0.2)
+        self.output_layer = nn.Linear(hidden_size * 3, 2)
 
     def forward(self, nl_hidden, pl_hidden):
         # pool_code_hidden = self.code_pooler(pl_hidden)
@@ -95,11 +96,11 @@ class classifyHeader(nn.Module):
         concated_hidden = torch.cat((nl_hidden, pl_hidden), 1)
         concated_hidden = torch.cat((concated_hidden, diff_hidden), 1)
 
-        x = self.dropout(concated_hidden)
-        x = self.dense(x)
-        x = torch.tanh(x)
-        x = self.dropout(x)
-        x = self.output_layer(x)
+        # x = self.dropout(concated_hidden)
+        # x = self.dense(x)
+        # x = torch.tanh(x)
+        # x = self.dropout(x)
+        x = self.output_layer(concated_hidden)
         return x
 
 
@@ -122,6 +123,7 @@ class LSTMEncoder(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(next(self.parameters()).device)
         )
 
+
     def token_to_ids(self, tokens):
         tokens = tokens[:self.max_seq_len]
         id_vec = []
@@ -132,15 +134,14 @@ class LSTMEncoder(nn.Module):
             id_vec.append(id)
         pad_num = max(0, self.max_seq_len - len(id_vec))
         if not self.is_no_padding:
-            id_vec = pad_num * [0] + id_vec
+            id_vec = id_vec + pad_num * [0]
         id_tensor = torch.tensor(id_vec)
         return id_tensor
 
     def forward(self, input_ids):
-        self.hidden = self.init_hidden(input_ids.size(0))
+        hidden = self.init_hidden(input_ids.size(0))
         embd = self.embedding(input_ids)
-        output, (last_hidden, last_cell_state) = self.lstm(embd, self.hidden)
-        # return output
+        output, (last_hidden, last_cell_state) = self.lstm(embd, hidden)
         return output[:, -1, :]
 
 
@@ -150,7 +151,6 @@ class RNNTracer(nn.Module):
         self.device = None
         self.embd_info = embd_info
         self.nl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding)
-        # self.pl_encoder = self.nl_encoder
         self.pl_encoder = LSTMEncoder(hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding)
         self.cls = classifyHeader(hidden_dim)
 
