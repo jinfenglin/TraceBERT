@@ -35,7 +35,6 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(model_path))
     logger.info("model loaded")
 
-    test_dir = os.path.join(args.data_dir, "test")
-    test_examples = load_examples_for_rnn(test_dir, model=model, num_limit=args.test_num)
+    test_examples = load_examples_for_rnn(args.data_dir, type='test', model=model, num_limit=args.test_num)
     update_rnn_embd(test_examples, model)
     evaluate_rnn_retrival(model, test_examples, batch_size=args.per_gpu_eval_batch_size, res_dir=args.output_dir)

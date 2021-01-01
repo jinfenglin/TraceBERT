@@ -17,6 +17,7 @@ from code_search.twin.twin_train import train
 from common.metrices import metrics
 from trace_single.train_trace_single import read_OSS_examples
 from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
+from data_processing import CodeSearchNetReader
 
 from trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
 from common.data_structures import Examples, F_TOKEN
@@ -28,12 +29,13 @@ RNN_EMBD = "RNN_EMBD"
 rnn_split_pattern = "\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|]"
 
 
-def load_examples_for_rnn(data_dir, model, num_limit):
+def load_examples_for_rnn(data_dir, type, model, num_limit):
     cache_dir = os.path.join(data_dir, "cache")
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir)
     logger.info("Creating examples from dataset file at {}".format(data_dir))
-    raw_examples = read_OSS_examples(data_dir)
+    csn_reader = CodeSearchNetReader(data_dir)
+    raw_examples = csn_reader.get_examples(type, summary_only=True)
     if num_limit:
         raw_examples = raw_examples[:num_limit]
 
@@ -165,7 +167,6 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         y_pred = logit.data.max(1)[1]
         tr_ac += y_pred.eq(labels).long().sum().item()
 
-
         if args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
         if args.gradient_accumulation_steps > 1:
@@ -289,7 +290,8 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
         os.makedirs(res_dir)
     retr_res_path = os.path.join(res_dir, "raw_result.csv")
     summary_path = os.path.join(res_dir, "summary.txt")
-    retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
+    # chunk size is 1000 as default
+    retrival_dataloader = eval_examples.get_chunked_retrivial_task_examples(batch_size)
     res = []
     for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
         nl_ids = batch[0]
@@ -307,17 +309,7 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
     df = results_to_df(res)
     df.to_csv(retr_res_path)
     m = metrics(df, output_dir=res_dir)
-
-    pk = m.precision_at_K(3)
-    best_f1, best_f2, details, threshold = m.precision_recall_curve("pr_curve.png")
-    map = m.MAP_at_K(3)
-
-    summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
-    with open(summary_path, 'w') as fout:
-        fout.write(summary)
-        fout.write(str(details))
-
-    return pk, best_f1, map
+    m.write_summary(0)
 
 
 def main():
@@ -364,10 +356,8 @@ def main():
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
-    train_dir = os.path.join(args.data_dir, "train")
-    valid_dir = os.path.join(args.data_dir, "valid")
-    train_examples = load_examples_for_rnn(train_dir, model=model, num_limit=args.train_num)
-    valid_examples = load_examples_for_rnn(valid_dir, model=model, num_limit=args.valid_num)
+    train_examples = load_examples_for_rnn(args.data_dir, type="train", model=model, num_limit=args.train_num)
+    valid_examples = load_examples_for_rnn(args.data_dir, type="valid", model=model, num_limit=args.valid_num)
     logger.info("Training started")
     train(args, train_examples, valid_examples, model, train_rnn_iter)
     logger.info("Training finished")
