@@ -132,7 +132,12 @@ def get_rnn_train_args():
                         help="ID for this execution, RNN training must specify a name as a quick fix")
     parser.add_argument("--is_no_padding", default=False, action='store_true',
                         help="if do not have padding then the batch size is always 1")
-
+    parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offline'],
+                        help="Negative sampling strategy we apply for constructing dataset. ")
+    parser.add_argument(
+        "--hard_ratio", default=0.5, type=float,
+        help="The ration of hard negative examples in a batch during negative sample mining"
+    )
     return parser.parse_args()
 
 
