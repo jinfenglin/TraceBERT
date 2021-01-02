@@ -8,19 +8,21 @@ import torch
 from torch import Tensor
 from tqdm import tqdm
 import sys
+
 sys.path.append("..")
 sys.path.append("../..")
 
 from code_search.twin.twin_train import train
 from common.metrices import metrics
-from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
+from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, \
+    results_to_df, format_rnn_batch_input
 from code_search.trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
-from common.data_structures import Examples, F_TOKEN
+from common.data_structures import Examples, F_TOKEN, F_INPUT_ID, F_EMBD
 from common.data_processing import CodeSearchNetReader
 
 logger = logging.getLogger(__name__)
-RNN_TK_ID = "RNN_TK_ID"
-RNN_EMBD = "RNN_EMBD"
+RNN_TK_ID = F_INPUT_ID
+RNN_EMBD = F_EMBD
 
 rnn_split_pattern = "\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|]"
 
@@ -141,25 +143,6 @@ def get_rnn_train_args():
     return parser.parse_args()
 
 
-def format_rnn_batch_input(batch, examples, model: RNNTracer):
-    """
-    Generate the hidden state for nl and pl
-    :param batch:
-    :param examples:
-    :param model:
-    :return:
-    """
-
-    nl_ids, pl_ids, labels = batch[0], batch[1], batch[2]
-    nl_input_feature = __id_to_feature(nl_ids, examples.NL_index)
-    pl_input_feature = __id_to_feature(pl_ids, examples.PL_index)
-    nl_hidden = model.get_nl_hidden(nl_input_feature.to(model.device))
-    pl_hidden = model.get_pl_hidden(pl_input_feature.to(model.device))
-    return {
-        "nl_hidden": nl_hidden,
-        "pl_hidden": pl_hidden
-    }
-
 
 def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examples: Examples, optimizer,
                    scheduler, tb_writer, step_bar, skip_n_steps):
@@ -236,7 +219,7 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                 tb_data = {
                     'lr': scheduler.get_last_lr()[0],
                     'acc': tr_ac / args.logging_steps / (
-                        args.train_batch_size * args.gradient_accumulation_steps),
+                            args.train_batch_size * args.gradient_accumulation_steps),
                     'loss': tr_loss / args.logging_steps
                 }
                 write_tensor_board(tb_writer, tb_data, args.global_step)
@@ -316,14 +299,6 @@ def _id_to_embd(id_tensor: Tensor, index):
         embds.append(index[id][RNN_EMBD])
     embd_tensor = torch.stack(embds)
     return embd_tensor
-
-
-def __id_to_feature(id_tensor, index):
-    input_ids = []
-    for id in id_tensor.tolist():
-        input_ids.append(index[id][RNN_TK_ID].clone().detach())
-    input_tensor = torch.stack(input_ids)
-    return input_tensor
 
 
 def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):

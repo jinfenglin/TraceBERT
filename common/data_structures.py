@@ -8,10 +8,11 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
+from code_search.trace_rnn.rnn_model import RNNTracer
 from common.models import TwinBert, TBertS
 from torch import Tensor
 
-from common.utils import format_batch_input, format_batch_input_for_single_bert
+from common.utils import format_batch_input, format_batch_input_for_single_bert, format_rnn_batch_input
 
 F_ID = 'id'
 F_TOKEN = 'tokens'
@@ -248,9 +249,12 @@ class Examples:
         input_ids, att_masks = [], []
         for id in id_tensor.tolist():
             input_ids.append(torch.tensor(index[id][F_INPUT_ID]))
-            att_masks.append(torch.tensor(index[id][F_ATTEN_MASK]))
+            if F_ATTEN_MASK in index[id]:
+                att_masks.append(torch.tensor(index[id][F_ATTEN_MASK]))
         input_tensor = torch.stack(input_ids)
-        att_tensor = torch.stack(att_masks)
+        att_tensor = None
+        if att_masks:
+            att_tensor = torch.stack(att_masks)
         return input_tensor, att_tensor
 
     def _id_to_embd(self, id_tensor: Tensor, index):
@@ -380,6 +384,8 @@ class Examples:
                 model.eval()
                 if isinstance(model, TBertS):
                     inputs = format_batch_input_for_single_bert(neg_batch, self, model)
+                elif isinstance(model, RNNTracer):
+                    inputs = format_rnn_batch_input(neg_batch, self, model)
                 else:
                     inputs = format_batch_input(neg_batch, self, model)
                 outputs = model(**inputs)

@@ -20,6 +20,26 @@ ARG_FNAME = "training_args.bin"
 logger = logging.getLogger(__name__)
 
 
+def format_rnn_batch_input(batch, examples, model):
+    """
+    Generate the hidden state for nl and pl
+    :param batch:
+    :param examples:
+    :param model:
+    :return:
+    """
+
+    nl_ids, pl_ids, labels = batch[0], batch[1], batch[2]
+    nl_input_feature, _ = examples._id_to_feature(nl_ids, examples.NL_index)
+    pl_input_feature, _ = examples._id_to_feature(pl_ids, examples.PL_index)
+    nl_hidden = model.get_nl_hidden(nl_input_feature.to(model.device))
+    pl_hidden = model.get_pl_hidden(pl_input_feature.to(model.device))
+    return {
+        "nl_hidden": nl_hidden,
+        "pl_hidden": pl_hidden
+    }
+
+
 def format_batch_input_for_single_bert(batch, examples, model):
     tokenizer = model.tokenizer
     nl_ids, pl_ids, labels = batch[0].tolist(), batch[1].tolist(), batch[2].tolist()
