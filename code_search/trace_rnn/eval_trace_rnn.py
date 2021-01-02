@@ -1,3 +1,7 @@
+from code_search.trace_rnn.train_trace_rnn import load_examples_for_rnn, update_rnn_embd, evaluate_rnn_retrival
+from code_search.trace_rnn.rnn_model import RNNTracer, load_embd_from_file
+from common.utils import MODEL_FNAME, ARG_FNAME
+from code_search.twin.twin_eval import get_eval_args
 import logging
 import os
 import sys
@@ -7,15 +11,11 @@ import torch
 sys.path.append("..")
 sys.path.append("../../")
 
-from trace_rnn.rnn_model import RNNTracer, load_embd_from_file
-from trace_rnn.train_trace_rnn import load_examples_for_rnn, update_rnn_embd, evaluate_rnn_retrival
-from code_search.twin.twin_eval import get_eval_args
-
-from common.utils import MODEL_FNAME, ARG_FNAME
 
 if __name__ == "__main__":
     args = get_eval_args()
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available()
+                          and not args.no_cuda else "cpu")
     res_file = os.path.join(args.output_dir, "./raw_res.csv")
     cache_dir = os.path.join(args.data_dir, "cache")
     cached_file = os.path.join(cache_dir, "test_examples_cache.dat".format())
@@ -35,6 +35,8 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(model_path))
     logger.info("model loaded")
 
-    test_examples = load_examples_for_rnn(args.data_dir, type='test', model=model, num_limit=args.test_num)
+    test_examples = load_examples_for_rnn(
+        args.data_dir, type='test', model=model, num_limit=args.test_num)
     update_rnn_embd(test_examples, model)
-    evaluate_rnn_retrival(model, test_examples, batch_size=args.per_gpu_eval_batch_size, res_dir=args.output_dir)
+    evaluate_rnn_retrival(
+        model, test_examples, batch_size=args.per_gpu_eval_batch_size, res_dir=args.output_dir)

@@ -1,3 +1,12 @@
+from common.data_processing import CodeSearchNetReader
+from common.data_structures import Examples, F_TOKEN
+from code_search.trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
+from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
+from common.metrices import metrics
+from code_search.twin.twin_train import train
+from tqdm import tqdm
+from torch import Tensor
+import torch
 import argparse
 import datetime
 import logging
@@ -9,17 +18,6 @@ from typing import Dict
 sys.path.append("..")
 sys.path.append("../..")
 
-import torch
-from torch import Tensor
-from tqdm import tqdm
-
-from code_search.twin.twin_train import train
-from common.metrices import metrics
-from trace_single.train_trace_single import read_OSS_examples
-from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
-
-from trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
-from common.data_structures import Examples, F_TOKEN
 
 logger = logging.getLogger(__name__)
 RNN_TK_ID = "RNN_TK_ID"
@@ -28,12 +26,13 @@ RNN_EMBD = "RNN_EMBD"
 rnn_split_pattern = "\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|]"
 
 
-def load_examples_for_rnn(data_dir, model, num_limit):
+def load_examples_for_rnn(data_dir, type, model, num_limit):
     cache_dir = os.path.join(data_dir, "cache")
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir)
     logger.info("Creating examples from dataset file at {}".format(data_dir))
-    raw_examples = read_OSS_examples(data_dir)
+    csn_reader = CodeSearchNetReader(data_dir)
+    raw_examples = csn_reader.get_examples(type, summary_only=True)
     if num_limit:
         raw_examples = raw_examples[:num_limit]
 
@@ -77,22 +76,32 @@ def get_rnn_train_args():
     parser.add_argument(
         "--model_path", default=None, type=str,
         help="path of checkpoint and trained model, if none will do training from scratch")
-    parser.add_argument("--logging_steps", type=int, default=500, help="Log every X updates steps.")
-    parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
+    parser.add_argument("--logging_steps", type=int,
+                        default=500, help="Log every X updates steps.")
+    parser.add_argument("--no_cuda", action="store_true",
+                        help="Whether not to use CUDA when available")
     parser.add_argument("--valid_num", type=int, default=100,
                         help="number of instances used for evaluating the checkpoint performance")
     parser.add_argument("--valid_step", type=int, default=50,
                         help="obtain validation accuracy every given steps")
     parser.add_argument("--train_num", type=int, default=None,
                         help="number of instances used for training")
-    parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
-    parser.add_argument("--per_gpu_train_batch_size", default=1, type=int, help="Batch size per GPU/CPU for training.")
-    parser.add_argument("--per_gpu_eval_batch_size", default=1, type=int, help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
-    parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight decay if we apply some.")
-    parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="overwrite the cached data")
+    parser.add_argument("--per_gpu_train_batch_size", default=8,
+                        type=int, help="Batch size per GPU/CPU for training.")
+    parser.add_argument("--per_gpu_eval_batch_size", default=8,
+                        type=int, help="Batch size per GPU/CPU for evaluation.")
+    parser.add_argument("--adam_epsilon", default=1e-8,
+                        type=float, help="Epsilon for Adam optimizer.")
+    parser.add_argument("--max_grad_norm", default=1.0,
+                        type=float, help="Max gradient norm.")
+    parser.add_argument("--local_rank", type=int, default=-1,
+                        help="local_rank for distributed training on gpus")
+    parser.add_argument("--weight_decay", default=0.0,
+                        type=float, help="Weight decay if we apply some.")
+    parser.add_argument("--warmup_steps", default=0, type=int,
+                        help="Linear warmup over warmup_steps.")
     parser.add_argument(
         "--gradient_accumulation_steps", type=int, default=1,
         help="Number of updates steps to accumulate before performing a backward/update pass.", )
@@ -102,20 +111,24 @@ def get_rnn_train_args():
     parser.add_argument(
         "--max_steps", default=-1, type=int,
         help="If > 0: set total number of training steps to perform. Override num_train_epochs.", )
-    parser.add_argument("--save_steps", type=int, default=3000, help="Save checkpoint every X updates steps.")
+    parser.add_argument("--save_steps", type=int, default=3000,
+                        help="Save checkpoint every X updates steps.")
     parser.add_argument(
         "--output_dir", default=None, type=str, required=True,
         help="The output directory where the model checkpoints and predictions will be written.", )
-    parser.add_argument("--learning_rate", default=5e-5, type=float, help="The initial learning rate for Adam.")
+    parser.add_argument("--learning_rate", default=5e-5,
+                        type=float, help="The initial learning rate for Adam.")
     parser.add_argument(
         "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
     )
-    parser.add_argument("--max_seq_len", type=int, default=64, help="maximal input sequence length")
+    parser.add_argument("--max_seq_len", type=int, default=64,
+                        help="maximal input sequence length")
     parser.add_argument(
         "--embd_file_path", type=str, help="the path of word embdding file")
     parser.add_argument(
         "--is_embd_trainable", default=False, action='store_true', help="whether the embedding is trainable")
-    parser.add_argument("--hidden_dim", type=int, default=60, help="hidden state dimension")
+    parser.add_argument("--hidden_dim", type=int, default=60,
+                        help="hidden state dimension")
     parser.add_argument("--exp_name", type=str,
                         help="ID for this execution, RNN training must specify a name as a quick fix")
     parser.add_argument("--is_no_padding", default=False, action='store_true',
@@ -148,12 +161,32 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                    scheduler, tb_writer, step_bar, skip_n_steps):
     tr_loss, tr_ac = 0, 0
     batch_size = args.per_gpu_train_batch_size
-    train_dataloader = train_examples.random_neg_sampling_dataloader(batch_size=batch_size)
+    cache_file = "cached_rnn_random_neg_sample_epoch_{}.dat".format(
+        args.epochs_trained)
+
+    if args.neg_sampling == "random":
+        if args.overwrite or not os.path.isfile(cache_file):
+            train_dataloader = train_examples.random_neg_sampling_dataloader(
+                batch_size=batch_size)
+            torch.save(train_dataloader, cache_file)
+        else:
+            train_dataloader = torch.load(cache_file)
+    elif args.neg_sampling == "online":
+        # we provide only positive cases and will create negative in the batch processing
+        train_dataloader = train_examples.online_neg_sampling_dataloader(
+            batch_size=int(batch_size / 2))
+    else:
+        raise Exception(
+            "{} neg_sampling is not recoginized...".format(args.neg_sampling))
 
     for step, batch in enumerate(train_dataloader):
         if skip_n_steps > 0:
             skip_n_steps -= 1
             continue
+
+        if args.neg_sampling == "online":
+            batch = train_examples.make_online_neg_sampling_batch(
+                batch, model, args.hard_ratio)
 
         model.train()
         labels = batch[2].to(model.device)
@@ -164,7 +197,6 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
         logit = outputs['logits']
         y_pred = logit.data.max(1)[1]
         tr_ac += y_pred.eq(labels).long().sum().item()
-
 
         if args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -177,16 +209,19 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
             except ImportError:
-                raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+                raise ImportError(
+                    "Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         else:
             loss.backward()
         tr_loss += loss.item()
 
         if (step + 1) % args.gradient_accumulation_steps == 0:
             if args.fp16:
-                torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
+                torch.nn.utils.clip_grad_norm_(
+                    amp.master_params(optimizer), args.max_grad_norm)
             else:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), args.max_grad_norm)
             optimizer.step()
             scheduler.step()
             model.zero_grad()
@@ -197,7 +232,7 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
                 tb_data = {
                     'lr': scheduler.get_last_lr()[0],
                     'acc': tr_ac / args.logging_steps / (
-                            args.train_batch_size * args.gradient_accumulation_steps),
+                        args.train_batch_size * args.gradient_accumulation_steps),
                     'loss': tr_loss / args.logging_steps
                 }
                 write_tensor_board(tb_writer, tb_data, args.global_step)
@@ -207,8 +242,10 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
             # Save model checkpoint
             if args.local_rank in [-1, 0] and args.save_steps > 0 and args.global_step % args.save_steps == 0:
                 # step invoke checkpoint writing
-                ckpt_output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(args.global_step))
-                save_check_point(model, ckpt_output_dir, args, optimizer, scheduler)
+                ckpt_output_dir = os.path.join(
+                    args.output_dir, "checkpoint-{}".format(args.global_step))
+                save_check_point(model, ckpt_output_dir,
+                                 args, optimizer, scheduler)
 
             if args.valid_step > 0 and args.global_step % args.valid_step == 1:
                 # step invoke validation
@@ -232,7 +269,8 @@ def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examp
 
 
 def evaluate_rnn_classification(eval_examples, model: RNNTracer, batch_size, output_dir, append_label=True):
-    eval_dataloader = eval_examples.random_neg_sampling_dataloader(batch_size=batch_size)
+    eval_dataloader = eval_examples.random_neg_sampling_dataloader(
+        batch_size=batch_size)
     clsfy_res = []
     num_correct = 0
     eval_num = 0
@@ -289,33 +327,38 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
         os.makedirs(res_dir)
     retr_res_path = os.path.join(res_dir, "raw_result.csv")
     summary_path = os.path.join(res_dir, "summary.txt")
-    retrival_dataloader = eval_examples.get_retrivial_task_dataloader(batch_size)
+    retrival_dataloader = eval_examples.get_retrivial_task_dataloader(
+        batch_size)
     res = []
     for batch in tqdm(retrival_dataloader, desc="retrival evaluation"):
         nl_ids = batch[0]
         pl_ids = batch[1]
         labels = batch[2]
-        nl_embd, pl_embd = _id_to_embd(nl_ids, eval_examples.NL_index), _id_to_embd(pl_ids, eval_examples.PL_index)
+        nl_embd, pl_embd = _id_to_embd(nl_ids, eval_examples.NL_index), _id_to_embd(
+            pl_ids, eval_examples.PL_index)
 
         with torch.no_grad():
             model.eval()
             nl_embd = nl_embd.to(model.device)
             pl_embd = pl_embd.to(model.device)
-            sim_score = model.get_sim_score(text_hidden=nl_embd, code_hidden=pl_embd)
+            sim_score = model.get_sim_score(
+                text_hidden=nl_embd, code_hidden=pl_embd)
             for n, p, prd, lb in zip(nl_ids.tolist(), pl_ids.tolist(), sim_score, labels.tolist()):
                 res.append((n, p, prd, lb))
     df = results_to_df(res)
     df.to_csv(retr_res_path)
     m = metrics(df, output_dir=res_dir)
+    m.write_summary(0)
 
     pk = m.precision_at_K(3)
-    best_f1, best_f2, details, threshold = m.precision_recall_curve("pr_curve.png")
+    best_f1, best_f2, details, threshold = m.precision_recall_curve(
+        "pr_curve.png")
     map = m.MAP_at_K(3)
 
-    summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
-    with open(summary_path, 'w') as fout:
-        fout.write(summary)
-        fout.write(str(details))
+    # summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
+    # with open(summary_path, 'w') as fout:
+    #     fout.write(summary)
+    #     fout.write(str(details))
 
     return pk, best_f1, map
 
@@ -323,17 +366,18 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
 def main():
     args = get_rnn_train_args()
     if args.is_no_padding:
-        args.gradient_accumulation_steps = 1
+        # args.gradient_accumulation_steps = 1
         args.per_gpu_eval_batch_size = 1
         args.per_gpu_train_batch_size = 1
-        args.logging_steps = args.logging_steps * 10
 
-    args.exp_name = "{}_{}".format(args.exp_name, datetime.datetime.now().strftime("%m-%d-%H-%M-%S"))
+    args.exp_name = "{}_{}".format(
+        args.exp_name, datetime.datetime.now().strftime("%m-%d-%H-%M-%S"))
     # embd_info = create_emb_layer("./we/glove.6B.300d.txt")
     embd_info = load_embd_from_file(args.embd_file_path)
 
     if args.local_rank == -1 or args.no_cuda:
-        device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+        device = torch.device(
+            "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()
     else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
@@ -362,12 +406,13 @@ def main():
             import apex
             apex.amp.register_half_function(torch, "einsum")
         except ImportError:
-            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+            raise ImportError(
+                "Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
-    train_dir = os.path.join(args.data_dir, "train")
-    valid_dir = os.path.join(args.data_dir, "valid")
-    train_examples = load_examples_for_rnn(train_dir, model=model, num_limit=args.train_num)
-    valid_examples = load_examples_for_rnn(valid_dir, model=model, num_limit=args.valid_num)
+    train_examples = load_examples_for_rnn(
+        args.data_dir, type="train", model=model, num_limit=args.train_num)
+    valid_examples = load_examples_for_rnn(
+        args.data_dir, type="valid", model=model, num_limit=args.valid_num)
     logger.info("Training started")
     train(args, train_examples, valid_examples, model, train_rnn_iter)
     logger.info("Training finished")

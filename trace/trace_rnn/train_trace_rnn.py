@@ -13,14 +13,14 @@ import torch
 from torch import Tensor
 from tqdm import tqdm
 
-from code_search.twin.twin_train import train
-from common.metrices import metrics
-from trace_single.train_trace_single import read_OSS_examples
-from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
-from data_processing import CodeSearchNetReader
 
-from trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
+from common.metrices import metrics
+
+from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, results_to_df
+from trace.trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
+from trace.trace_rnn.train_trace_rnn import read_OSS_examples
 from common.data_structures import Examples, F_TOKEN
+from code_search.twin.twin_train import train
 
 logger = logging.getLogger(__name__)
 RNN_TK_ID = "RNN_TK_ID"
@@ -29,13 +29,12 @@ RNN_EMBD = "RNN_EMBD"
 rnn_split_pattern = "\s|(?<!\d)[,.](?!\d)|//|\\n|\\\\|/|[\'=_\|]"
 
 
-def load_examples_for_rnn(data_dir, type, model, num_limit):
+def load_examples_for_rnn(data_dir, model, num_limit):
     cache_dir = os.path.join(data_dir, "cache")
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir)
     logger.info("Creating examples from dataset file at {}".format(data_dir))
-    csn_reader = CodeSearchNetReader(data_dir)
-    raw_examples = csn_reader.get_examples(type, summary_only=True)
+    raw_examples = read_OSS_examples(data_dir)
     if num_limit:
         raw_examples = raw_examples[:num_limit]
 
@@ -355,9 +354,11 @@ def main():
             apex.amp.register_half_function(torch, "einsum")
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
-
-    train_examples = load_examples_for_rnn(args.data_dir, type="train", model=model, num_limit=args.train_num)
-    valid_examples = load_examples_for_rnn(args.data_dir, type="valid", model=model, num_limit=args.valid_num)
+    
+    train_dir = os.path.join(args.data_dir, "train")
+    valid_dir = os.path.join(args.data_dir, "valid")         
+    train_examples = load_examples_for_rnn(train_dir, model=model, num_limit=args.train_num)
+    valid_examples = load_examples_for_rnn(valid_dir, model=model, num_limit=args.valid_num)
     logger.info("Training started")
     train(args, train_examples, valid_examples, model, train_rnn_iter)
     logger.info("Training finished")
