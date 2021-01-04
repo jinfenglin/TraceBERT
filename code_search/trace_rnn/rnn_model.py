@@ -172,7 +172,7 @@ class RNNTracer(nn.Module):
             hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding, rnn_type)
         self.pl_encoder = RNNEncoder(
             hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding, rnn_type)
-        self.cls = classifyHeader(hidden_dim)
+        self.cls = classifyHeader(hidden_dim, rnn_type)
 
     def forward(self, nl_hidden, pl_hidden, label=None):
         logits = self.cls(nl_hidden=nl_hidden, pl_hidden=pl_hidden)
