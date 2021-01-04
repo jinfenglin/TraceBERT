@@ -24,6 +24,6 @@ python train_trace_rnn.py \
 --per_gpu_eval_batch_size 8 \
 --num_train_epoch 100 \
 --is_embd_trainable \
---hidden_dim 256 \
+--hidden_dim 128 \
 --rnn_type bi_gru
 
