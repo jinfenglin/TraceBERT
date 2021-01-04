@@ -37,9 +37,6 @@ def load_examples_for_rnn(data_dir, model, num_limit):
     if num_limit:
         raw_examples = raw_examples[:num_limit]
 
-    for e in raw_examples:
-        e['NL'] = " ".join(re.split(rnn_split_pattern, e['NL']))
-        e['PL'] = " ".join(re.split(rnn_split_pattern, e['PL']))
     examples = Examples(raw_examples)
     update_rnn_feature(examples, model)
     return examples
