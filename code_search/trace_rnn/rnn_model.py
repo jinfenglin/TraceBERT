@@ -221,7 +221,3 @@ if __name__ == "__main__":
 
     score = rt.get_sim_score(text_hidden=nl_hidden, code_hidden=pl_hidden)
     print(score)
-    # idx = embd_info['word2idx']['frog']
-    # logger.info(embd_info['embd_matrix'][0])
-    # embd = embd_info['embd_layer'](torch.tensor([[1, 2, 3], [4, 5, 6]]))
-    # logger.info(embd)
