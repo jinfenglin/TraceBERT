@@ -51,13 +51,17 @@ def create_emb_layer(embd_info, trainable=True):
 
 
 class classifyHeader(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, rnn_type):
         super().__init__()
+        bi = 1
+        if rnn_type == 'bi_gru':
+            bi = 2
+
         self.hidden_size = hidden_size
         self.sigmoid = nn.Sigmoid()
-        self.dense = nn.Linear(hidden_size * 4, hidden_size * 2)
+        self.dense = nn.Linear(hidden_size * 4 * bi, hidden_size * 2 * bi)
         self.dropout = nn.Dropout(0.2)
-        self.output_layer = nn.Linear(hidden_size * 2, 2)
+        self.output_layer = nn.Linear(hidden_size * 2 * bi, 2)
 
     def forward(self, nl_hidden, pl_hidden):
         concated_hidden = torch.cat((nl_hidden, pl_hidden), 1)
@@ -108,8 +112,8 @@ class RNNAvgPooler(nn.Module):
 #         return x
 
 
-class LSTMEncoder(nn.Module):
-    def __init__(self, hidden_dim, embd_info, max_seq_len, embd_trainable, is_no_padding):
+class RNNEncoder(nn.Module):
+    def __init__(self, hidden_dim, embd_info, max_seq_len, embd_trainable, is_no_padding, rnn_type):
         super().__init__()
         embd_info = create_emb_layer(embd_info, trainable=embd_trainable)
         self.num_layers = 1
@@ -119,16 +123,24 @@ class LSTMEncoder(nn.Module):
         self.embedding = embd_info["embd_layer"]
         self.word2idx = embd_info['word2idx']
         self.embd_dim = embd_info['embd_dim']
-        self.lstm = nn.LSTM(self.embd_dim, hidden_dim,
-                            num_layers=self.num_layers, batch_first=True)
+        self.rnn_type = rnn_type
+        if rnn_type == 'lstm':
+            self.rnn = nn.LSTM(self.embd_dim, hidden_dim, num_layers=self.num_layers, batch_first=True)
+        elif rnn_type == 'bi_gru':
+            self.rnn = nn.GRU(self.embd_dim, hidden_dim, num_layers=self.num_layers, batch_first=True,
+                              bidirectional=True)
 
     def init_hidden(self, batch_size):
-        return (
-            torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(
-                next(self.parameters()).device),
-            torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(
+        if self.rnn_type == 'bi_gru':
+            return torch.zeros(self.num_layers * 2, batch_size, self.hidden_dim).to(
                 next(self.parameters()).device)
-        )
+        else:
+            return (
+                torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(
+                    next(self.parameters()).device),
+                torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(
+                    next(self.parameters()).device)
+            )
 
     def token_to_ids(self, tokens):
         tokens = tokens[:self.max_seq_len]
@@ -147,19 +159,19 @@ class LSTMEncoder(nn.Module):
     def forward(self, input_ids):
         hidden = self.init_hidden(input_ids.size(0))
         embd = self.embedding(input_ids)
-        output, (last_hidden, last_cell_state) = self.lstm(embd, hidden)
+        output, (last_hidden, last_cell_state) = self.rnn(embd, hidden)
         return output[:, -1, :]
 
 
 class RNNTracer(nn.Module):
-    def __init__(self, hidden_dim, embd_info, embd_trainable, is_no_padding, max_seq_len=128):
+    def __init__(self, hidden_dim, embd_info, embd_trainable, is_no_padding, max_seq_len=128, rnn_type='bi_gru'):
         super().__init__()
         self.device = None
         self.embd_info = embd_info
-        self.nl_encoder = LSTMEncoder(
-            hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding)
-        self.pl_encoder = LSTMEncoder(
-            hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding)
+        self.nl_encoder = RNNEncoder(
+            hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding, rnn_type)
+        self.pl_encoder = RNNEncoder(
+            hidden_dim, self.embd_info, max_seq_len, embd_trainable, is_no_padding, rnn_type)
         self.cls = classifyHeader(hidden_dim)
 
     def forward(self, nl_hidden, pl_hidden, label=None):

@@ -16,7 +16,7 @@ from code_search.twin.twin_train import train
 from common.metrices import metrics
 from common.utils import write_tensor_board, save_check_point, evaluate_classification, evaluate_retrival, \
     results_to_df, format_rnn_batch_input
-from code_search.trace_rnn.rnn_model import RNNTracer, create_emb_layer, LSTMEncoder, load_embd_from_file
+from code_search.trace_rnn.rnn_model import RNNTracer, create_emb_layer, RNNEncoder, load_embd_from_file
 from common.data_structures import Examples, F_TOKEN, F_INPUT_ID, F_EMBD
 from common.data_processing import CodeSearchNetReader
 
@@ -46,7 +46,7 @@ def load_examples_for_rnn(data_dir, type, model, num_limit):
 
 
 def update_rnn_feature(examples: Examples, model: RNNTracer):
-    def __update_rnn_feature(index: Dict, encoder: LSTMEncoder):
+    def __update_rnn_feature(index: Dict, encoder: RNNEncoder):
         for id in index.keys():
             tokens = index[id][F_TOKEN].split()
             tk_id = encoder.token_to_ids(tokens)
@@ -57,7 +57,7 @@ def update_rnn_feature(examples: Examples, model: RNNTracer):
 
 
 def update_rnn_embd(examples: Examples, model: RNNTracer):
-    def __update_rnn_embd(index: Dict, sub_model: LSTMEncoder):
+    def __update_rnn_embd(index: Dict, sub_model: RNNEncoder):
         for id in tqdm(index.keys(), desc="update RNN embedding"):
             tk_id = index[id][RNN_TK_ID].view(1, -1)
             embd = sub_model(tk_id.to(model.device))[0]
@@ -136,12 +136,13 @@ def get_rnn_train_args():
                         help="if do not have padding then the batch size is always 1")
     parser.add_argument("--neg_sampling", default='random', choices=['random', 'online', 'offline'],
                         help="Negative sampling strategy we apply for constructing dataset. ")
+    parser.add_argument("--rnn_type", default='bi_gru', choices=['bi_gru', 'lstm'],
+                        help="Type of RNN layer in TraceNN ")
     parser.add_argument(
         "--hard_ratio", default=0.5, type=float,
         help="The ration of hard negative examples in a batch during negative sample mining"
     )
     return parser.parse_args()
-
 
 
 def train_rnn_iter(args, model: RNNTracer, train_examples: Examples, valid_examples: Examples, optimizer,
@@ -333,12 +334,6 @@ def evaluate_rnn_retrival(model: RNNTracer, eval_examples, batch_size, res_dir):
     best_f1, best_f2, details, threshold = m.precision_recall_curve(
         "pr_curve.png")
     map = m.MAP_at_K(3)
-
-    # summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
-    # with open(summary_path, 'w') as fout:
-    #     fout.write(summary)
-    #     fout.write(str(details))
-
     return pk, best_f1, map
 
 
@@ -374,7 +369,7 @@ def main():
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
     model = RNNTracer(hidden_dim=args.hidden_dim, embd_info=embd_info, embd_trainable=args.is_embd_trainable,
-                      max_seq_len=args.max_seq_len, is_no_padding=args.is_no_padding)
+                      max_seq_len=args.max_seq_len, is_no_padding=args.is_no_padding, rnn_type= args.rnn_type)
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()

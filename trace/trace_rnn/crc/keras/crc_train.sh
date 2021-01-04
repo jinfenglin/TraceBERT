@@ -22,9 +22,10 @@ python train_trace_rnn.py \
 --logging_steps 10 \
 --gradient_accumulation_steps 8 \
 --per_gpu_eval_batch_size 8 \
---num_train_epoch 400 \
+--num_train_epoch 100 \
 --is_embd_trainable \
---hidden_dim 256
+--hidden_dim 256 \
+--rnn_type bi_gru
 
 #python train_trace_single.py \
 #--data_dir ../data/git_data/dbcli/pgcli \
