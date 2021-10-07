@@ -13,7 +13,6 @@ The results shows Single Arch can achieve best performance, while the Siamese ha
 
 This repo is for replication purpose, thus it only provide scripts for train and evalution, the prediction scripts for production use is not provided yet. I will work on it in next version.
 
-----
 ## Installation
 - Python >= 3.7 
 - pytorch/1.1.0
@@ -23,7 +22,7 @@ This repo is for replication purpose, thus it only provide scripts for train and
 pip install -U pip setuptools 
 pip install -r requirement.txt
 ```
-----
+
 ## Step1:Code Search
 Step 1 uses the code search dataset, which can be found in this [link](https://github.com/github/CodeSearchNet). 
 It is also the dataset used for pre-training the CodeBert LM. 
@@ -89,7 +88,47 @@ python eval_trace_siamese.py \
 
 ```
 
+## Apply on your own data
+You can replace the second step with your own tracing data, e.g. trace requirements to source code file. The easiest way to do this is formatting the data into the following csv schema please refer the data in step 2 for example. After formatting the data, you can use the train/eval scripts in step2 to conduct training and evaluatoin.
+
 ----
+
+**commit_file:**
+
+commit_id: unique id of the code artifact
+
+diff: the actaul content of the code file in string, in our case is the code change set
+
+summary: summary of the code file, will be merged with diff as a single string
+
+commit_time: not used
+
+files: not used
+
+----
+
+**issue_file:**
+
+issue_id: unique id of the NL artifact
+
+issue_desc: string of the content, will be merged with issue_comments
+
+issue_comments: string of the content, will be merged with issue_desc
+
+created_at: not used
+
+closed_at: not used
+
+---
+
+**link_file:**
+
+issue_id: ids from issue_file
+
+commit_id: ids from commit_file
+
+----
+
 ## Models
 ```
 I am working to upload trained models and will update links here
