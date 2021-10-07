@@ -270,7 +270,7 @@ def evaluate_retrival(model, eval_examples, batch_size, res_dir):
     m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
-    best_f1, best_f2, details = m.precision_recall_curve("pr_curve.png")
+    best_f1, best_f2, details, _ = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
     summary = "\nprecision@3={}, best_f1 = {}, best_f2={}， MAP={}\n".format(pk, best_f1, best_f2, map)
@@ -300,7 +300,7 @@ def evalute_retrivial_for_single_bert(model, eval_examples, batch_size, res_dir)
     m = metrics(df, output_dir=res_dir)
 
     pk = m.precision_at_K(3)
-    best_f1, best_f2, details = m.precision_recall_curve("pr_curve.png")
+    best_f1, best_f2, details, _ = m.precision_recall_curve("pr_curve.png")
     map = m.MAP_at_K(3)
 
     summary = "\nprecision@3={}, best_f1 = {}, best_f2={}, MAP={}\n".format(pk, best_f1, best_f2, map)

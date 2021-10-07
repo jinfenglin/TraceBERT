@@ -69,7 +69,7 @@ tensorboard==2.2.1
 tensorboard-plugin-wit==1.6.0.post3
 threadpoolctl==2.1.0
 tokenizer==2.1.0
-tokenizers==0.7.0
+tokenizers==0.5.2
 torch==1.5.0
 torchvision==0.6.0
 tqdm==4.45.0

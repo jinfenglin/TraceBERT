@@ -32,7 +32,7 @@ def get_eval_args():
     parser.add_argument("--output_dir", default="./evaluation/test", help="directory to store the results")
     parser.add_argument("--overwrite", action="store_true", help="overwrite the cached data")
     parser.add_argument("--code_bert", default="microsoft/codebert-base", help="the base bert")
-    parser.add_argument("--exp_name", help="id for this run of experiment")
+    parser.add_argument("--exp_name", default="exp",help="id for this run of experiment")
     parser.add_argument("--chunk_query_num", default=-1, type=int,
                         help="The number of queries in each chunk of retrivial task")
     args = parser.parse_args()
