@@ -130,10 +130,8 @@ commit_id: ids from commit_file
 ----
 
 ## Models
-```
 Single and Siamese Models from Step 2: https://drive.google.com/drive/folders/1nxJFg22zep9RtDMSw6N5VRCqIb5ALZwk?usp=sharing
 
-```
 
 ## Citation
 
