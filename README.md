@@ -131,7 +131,8 @@ commit_id: ids from commit_file
 
 ## Models
 ```
-I am working to upload trained models and will update links here
+Single and Siamese Models from Step 2: https://drive.google.com/drive/folders/1nxJFg22zep9RtDMSw6N5VRCqIb5ALZwk?usp=sharing
+
 ```
 
 ## Citation
