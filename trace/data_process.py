@@ -16,17 +16,40 @@ from nltk.tokenize import word_tokenize
 import numpy as np
 
 
+def __read_artifact_dict(file_path, type):
+    """
+    for issue or commits, 
+    return dictionary-like artifacts, such as {commit_id: {commit}}
+    """
+    
+    df = pd.read_csv(file_path)
+    df = df.replace(np.nan, regex=True)
+    arti = dict()
+    
+    for index, row in df.iterrows():
+        if type == 'commit':
+            art = Commit(commit_id=row['commit_id'], summary=row['summary'], \
+                diffs=row['diff'], files=row['files'], commit_time=row['commit_time'])
+            arti[art.commit_id] = art
+        elif type == "issue":
+            art = Issue(issue_id=row['issue_id'], desc=row['issue_desc'], \
+                comments=row['issue_comments'], create_time=row['created_at'], close_time=row['closed_at'])
+            arti[art.issue_id] = art
+        else:
+            raise Exception("wrong artifact type")
+        
+    return arti
+
+
 def __read_artifacts(file_path, type):
     df = pd.read_csv(file_path)
     df = df.replace(np.nan, regex=True)
     arti = []
     for index, row in df.iterrows():
         if type == 'commit':
-            art = Commit(commit_id=row['commit_id'], summary=row['summary'], diffs=row['diff'], files=row['files'],
-                         commit_time=row['commit_time'])
+            art = Commit(commit_id=row['commit_id'], summary=row['summary'], diffs=row['diff'], files=row['files'], commit_time=row['commit_time'])
         elif type == "issue":
-            art = Issue(issue_id=row['issue_id'], desc=row['issue_desc'], comments=row['issue_comments'],
-                        create_time=row['created_at'], close_time=row['closed_at'])
+            art = Issue(issue_id=row['issue_id'], desc=row['issue_desc'], comments=row['issue_comments'], create_time=row['created_at'], close_time=row['closed_at'])
         elif type == "link":
             iss_id = row["issue_id"]
             cm_id = row["commit_id"]
@@ -53,7 +76,7 @@ def read_artifacts(proj_data_dir):
     commit_file = os.path.join(proj_data_dir, "commit.csv")
     issue_file = os.path.join(proj_data_dir, "issue.csv")
     link_file = os.path.join(proj_data_dir, "link.csv")
-
+    
     issues = __read_artifacts(issue_file, type="issue")
     commits = __read_artifacts(commit_file, type="commit")
     links = __read_artifacts(link_file, type="link")
@@ -168,25 +191,40 @@ if __name__ == "__main__":
     logger.setLevel("INFO")
     # projects = ['dbcli/pgcli']
     # projects = ['pallets/flask']
-    projects = ['keras-team/keras']
+    projects = ['dbcli/pgcli', 'pallets/flask', 'keras-team/keras']
 
     config = configparser.ConfigParser()
     config.read('credentials.cfg')
-    git_token = config['GIT']['TOKEN']
-
-    download_dir = 'G:/Document/git_projects'
+    
     output_dir = './data/git_data'
 
     for repo_path in projects:
-        logger.info("Processing repo: {}".format(repo_path))
-        rpc = GitRepoCollector(git_token, download_dir, output_dir, repo_path)
-        rpc.create_issue_commit_dataset()
+        proj_data_dir = os.path.join(output_dir, repo_path)
+        
+        if not os.path.exists(os.path.join(proj_data_dir, 'issue.csv')):
+            # if the issue_csv is not available
+            logger.info("Processing repo: {}".format(repo_path))
+            git_token = config['GIT']['TOKEN']
+            download_dir = 'G:/Document/git_projects'
+            rpc = GitRepoCollector(git_token, download_dir, output_dir, repo_path)
+            rpc.create_issue_commit_dataset()
         # clean the issue and commits by:
         # remove the stacktrace from issue
         # remove commits with less than 10 lines of changeset
         # remove both issue and commit that have no link associated with we do this for two reasons:
         # 1. link incomplete 2. 10 fold divide
         # split the dataset into 10 fold by links and attach the issue/commit along with those links
-        proj_data_dir = os.path.join(output_dir, repo_path)
-        clean_issue, clean_commits, clean_links = clean_artifacts(proj_data_dir)
-        split(clean_issue, clean_commits, clean_links, proj_data_dir)
+        
+        clean_issue_file = os.path.join(proj_data_dir, 'clean_issue.csv')
+        clean_commits_file = os.path.join(proj_data_dir, 'clean_commit.csv')
+        
+        if os.path.exists(clean_issue_file) and os.path.exists(clean_commits_file):
+            # if the cleaned_issue.csv is available
+            clean_issues = __read_artifact_dict(clean_issue_file, 'issue')
+            clean_commits = __read_artifact_dict(clean_commits_file, 'commit')
+            clean_links_file = os.path.join(proj_data_dir, 'clean_link.csv')
+            clean_links = __read_artifacts(clean_links_file, 'link')
+        else:
+            clean_issue, clean_commits, clean_links = clean_artifacts(proj_data_dir)
+        
+        split(clean_issues, clean_commits, clean_links, proj_data_dir)
